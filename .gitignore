@@ -1,3 +1,7 @@
 /build
+/reports
+/out
 /.regolith
-/mcbe-schemas
+node_modules/
+*.mcaddon
+*.mcworld

@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+#
+# Mandatory completion gate for this project.
+#
+# Compiles with regolith, validates with mct, and fails loudly on any error.
+# No task is "done" until this exits 0.
+#
+# Checks BOTH the mct exit code and the counts inside the JSON report. mct
+# does return a nonzero code on validation errors (4, observed), but the
+# report is the authoritative record, and gating on both means a change in
+# either behaviour cannot silently turn this into a no-op.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+REPORTS="reports"
+
+# Optional profile argument. Default profile exports to com.mojang; CI has no
+# com.mojang, so CI passes a profile whose export target is "local".
+PROFILE="${1:-}"
+
+echo "==> regolith run ${PROFILE}"
+regolith run ${PROFILE}
+
+# A "local"-target profile exports into build/, which mct would then scan
+# alongside packs/ - double-validating everything and doubling error counts.
+# build/ is derived and gitignored; produce release artifacts with
+# `mct exportaddon` as a separate step, not from here.
+rm -rf build
+
+echo
+echo "==> mct validate addon"
+rm -rf "$REPORTS"
+mkdir -p "$REPORTS"
+
+set +e
+mct validate addon -i . -ot json -o "$REPORTS" --threads 8
+MCT_EXIT=$?
+set -e
+
+REPORT="$(ls "$REPORTS"/*.mcr.json 2>/dev/null | head -1)"
+if [ -z "$REPORT" ]; then
+  echo
+  echo "FAIL: mct produced no report at $REPORTS/*.mcr.json (exit $MCT_EXIT)"
+  exit 1
+fi
+
+echo
+node -e '
+const fs = require("fs");
+const [report, mctExit] = process.argv.slice(1);
+let d;
+try {
+  d = JSON.parse(fs.readFileSync(report, "utf8"));
+} catch (e) {
+  console.error("FAIL: could not parse " + report + ": " + e.message);
+  process.exit(1);
+}
+
+const info = d.info || {};
+const errors   = info.errorCount || 0;
+const internal = info.internalProcessingErrorCount || 0;
+// iTp === 3 marks an error item; cross-check it against errorCount.
+const items = (d.items || []).filter(i => i.iTp === 3).length;
+
+if (errors || internal || items) {
+  console.error("VALIDATION FAILED  " + report);
+  console.error("  errors:                    " + errors);
+  console.error("  internal processing errors: " + internal);
+  console.error("  error items (iTp=3):        " + items);
+  if (info.errorSummary) {
+    console.error("");
+    console.error(info.errorSummary);
+  }
+  if (info.internalProcessingErrorSummary) {
+    console.error(info.internalProcessingErrorSummary);
+  }
+  process.exit(1);
+}
+
+if (mctExit !== "0") {
+  console.error("VALIDATION FAILED: report is clean but mct exited " + mctExit);
+  console.error("Inspect " + report + " - this means mct signalled a failure");
+  console.error("the report did not record, and the gate is not trustworthy.");
+  process.exit(1);
+}
+
+console.log("clean  " + report);
+console.log("  files scanned: " + (info.contentFileCounts || 0) +
+            " content / " + (info.fileCounts || 0) + " total");
+' "$REPORT" "$MCT_EXIT"

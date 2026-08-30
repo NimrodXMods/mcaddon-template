@@ -1,0 +1,60 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "AddOnTemplate",
+    "description": "AddOnTemplate Behavior Pack",
+    "uuid": "505715e0-4564-4bcf-93c3-cc4bd3c8d2b4",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      16,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "description": "Behavior",
+      "version": [
+        1,
+        0,
+        0
+      ],
+      "uuid": "c7392773-2963-4851-8c61-ce634bccbd8e",
+      "type": "data"
+    },
+    {
+      "description": "Script resources",
+      "language": "javascript",
+      "type": "script",
+      "uuid": "a1aaebba-e759-448d-9664-aa570d91fb7e",
+      "version": [
+        0,
+        0,
+        1
+      ],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "efb1e4e7-8aa5-449d-846d-4e8eb9fb59fb",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.0.0"
+    },
+    {
+      "module_name": "@minecraft/server-ui",
+      "version": "2.0.0"
+    }
+  ]
+}

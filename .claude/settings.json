@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(regolith run:*)",
+      "Bash(regolith install:*)",
+      "Bash(regolith config:*)",
+      "Bash(regolith --version)",
+
+      "Bash(mct validate:*)",
+      "Bash(npx mct validate:*)",
+      "Bash(mct info:*)",
+      "Bash(npx mct info:*)",
+      "Bash(mct version:*)",
+      "Bash(mct search:*)",
+      "Bash(mct aggregatereports:*)",
+      "Bash(mct fix:*)",
+      "Bash(npx mct fix:*)",
+      "Bash(mct rendermodel:*)",
+      "Bash(mct rendervanilla:*)",
+      "Bash(mct renderstructure:*)",
+      "Bash(npx mct rendermodel:*)",
+      "Bash(npx mct rendervanilla:*)",
+      "Bash(npx mct renderstructure:*)",
+
+      "Bash(./scripts/verify.sh)",
+
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git ls-files:*)",
+
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(java -version)"
+    ],
+    "deny": [
+      "Bash(mct deploy:*)",
+      "Bash(npx mct deploy:*)",
+      "Bash(mct deploytestworld:*)",
+      "Bash(npx mct deploytestworld:*)",
+
+      "Edit(.regolith/**)",
+      "Write(.regolith/**)",
+      "Edit(out/**)",
+      "Write(out/**)",
+      "Edit(build/**)",
+      "Write(build/**)",
+      "Edit(reports/**)",
+      "Write(reports/**)",
+
+
+      "Edit(**/*.geo.json)",
+      "Write(**/*.geo.json)",
+      "Edit(**/*.bbmodel)",
+      "Write(**/*.bbmodel)",
+      "Edit(**/*.png)",
+      "Write(**/*.png)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(mct exportaddon:*)",
+      "Bash(mct exportworld:*)",
+      "Bash(mct ensureworld:*)",
+      "Bash(mct create:*)",
+      "Bash(mct set:*)",
+      "Bash(mct add:*)"
+    ]
+  }
+}

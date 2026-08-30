@@ -1,0 +1,41 @@
+name: Validate Add-on
+
+on: [push, pull_request]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Pinned rather than floating: @minecraft/creator-tools describes itself
+      # as pre-release alpha.
+      - name: Install Minecraft Creator Tools
+        run: npm install -g @minecraft/creator-tools@0.17.7
+
+      - name: Install Regolith
+        run: |
+          curl -sSL -o regolith.tar.gz \
+            https://github.com/Bedrock-OSS/regolith/releases/latest/download/regolith-linux-x64.tar.gz
+          tar -xzf regolith.tar.gz
+          sudo mv regolith /usr/local/bin/
+          regolith --version
+
+      # The one gate. Do not reimplement the error check inline here - see
+      # AGENTS.md section 3g for why the obvious grep silently passes.
+      # The "ci" profile exports to a local target; the default profile would
+      # try to write into com.mojang, which does not exist on a CI runner.
+      - name: Verify
+        run: ./scripts/verify.sh ci
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: reports/
+          if-no-files-found: warn
