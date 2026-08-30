@@ -1,0 +1,17 @@
+{
+  "format_version": "1.20.80",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "addontemplate:example_entity",
+      "is_spawnable": true,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:health": { "value": 10, "max": 10 },
+      "minecraft:collision_box": { "height": 1, "width": 1 },
+      "minecraft:type_family": { "family": ["addontemplate", "inanimate"] },
+      "minecraft:physics": {},
+      "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true }
+    }
+  }
+}

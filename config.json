@@ -50,7 +50,21 @@
             "settings": {
               "languages": [
                 "en_US.lang"
-              ]
+              ],
+              "overwrite": true,
+              "sort": true,
+              "entities": {
+                "auto_name": true
+              },
+              "blocks": {
+                "auto_name": true
+              },
+              "items": {
+                "auto_name": true
+              },
+              "spawn_eggs": {
+                "auto_name": true
+              }
             }
           }
         ]
@@ -73,7 +87,21 @@
             "settings": {
               "languages": [
                 "en_US.lang"
-              ]
+              ],
+              "overwrite": true,
+              "sort": true,
+              "entities": {
+                "auto_name": true
+              },
+              "blocks": {
+                "auto_name": true
+              },
+              "items": {
+                "auto_name": true
+              },
+              "spawn_eggs": {
+                "auto_name": true
+              }
             }
           }
         ]

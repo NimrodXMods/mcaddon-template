@@ -682,7 +682,12 @@ scanning the temp copy of the packs. There is no separate templates directory.
 
 `../mcbe-schemas` is kept outside the project on purpose: anything under the
 project root gets walked by `mct validate`, and the schema clone's ~1200 files
-swamp the report and emit spurious JSON parse errors from `bedrock-samples`.
+swamp the report (1221 files scanned vs 8) and emit spurious
+`Could not load biome definition: SyntaxError` errors - mct tries to read the
+biome *schemas* as biome *definitions*. Reproduce with
+`mct validate addon -i ../mcbe-schemas`. Those particular errors are logged to
+stderr but never reach `info.errorCount`, so they would not fail the gate;
+the reason to move the clone out is report noise, not a false failure.
 
 ### `.gitignore`
 
@@ -1260,6 +1265,8 @@ npx mct exportworld -i . -o build
 | Edits vanish | Something hand-edited the `com.mojang` export target; the next `regolith run` overwrote it. Edit `packs/` instead. |
 | Filter output missing from `packs/` | Expected, not a bug. Filters run against `.regolith/tmp`; generated files appear only in the export target. |
 | Extension flags valid code | Blockception avoids experimental features by design. mct is the authority. |
+| Texture validation errors CADDONREQ102/104/108 | Cooperative Add-On rules: textures may not sit loose in common-named folders. Required layout is `textures/<creatorshortname>/<gamename>/blocks&#124;items&#124;entity/*.png` (one of those three), and `<creatorshortname>` may contain exactly **one** subfolder (plus optionally `common`). See the template under `packs/RP/textures/addontemplate/template/`. |
+| Generated `.lang` file is empty | `name_ninja` emits nothing unless a `name` field is present in the BP description or `auto_name` is enabled per type. It needs separate `entities`/`blocks`/`items`/`spawn_eggs` settings blocks - enabling three of the four silently omits the fourth. |
 | Custom item aux IDs unstable | Known ecosystem limitation: item ID assignment depends on pack stack order at world load, which is non-deterministic and unknowable at build time. Do not build logic on aux IDs. |
 
 ## Bedrock Model Authoring: Blockbench Workflow + Agent Geometry Rules
