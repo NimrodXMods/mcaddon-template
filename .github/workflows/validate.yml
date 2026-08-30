@@ -34,6 +34,11 @@ jobs:
           sudo mv regolith /usr/local/bin/
           regolith --version
 
+      # .regolith/ is gitignored, so the filter cache does not exist on a fresh
+      # checkout. install-all resolves every filter in filterDefinitions.
+      - name: Install Regolith filters
+        run: regolith install-all
+
       # The one gate. Do not reimplement the error check inline here - see
       # AGENTS.md section 3g for why the obvious grep silently passes.
       # The "ci" profile exports to a local target; the default profile would
