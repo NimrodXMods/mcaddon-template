@@ -38,8 +38,11 @@ jobs:
       # AGENTS.md section 3g for why the obvious grep silently passes.
       # The "ci" profile exports to a local target; the default profile would
       # try to write into com.mojang, which does not exist on a CI runner.
+      # Invoked via bash rather than ./ so a missing executable bit cannot fail
+      # the run. Windows git has core.filemode=false, so a chmod +x locally is
+      # not recorded; use `git update-index --chmod=+x` when adding a script.
       - name: Verify
-        run: ./scripts/verify.sh ci
+        run: bash ./scripts/verify.sh ci
 
       - name: Upload validation report
         if: always()
