@@ -259,7 +259,7 @@ compile.
 ### JSON schemas
 
 ```bash
-git clone https://github.com/Blockception/Minecraft-bedrock-json-schemas.git ../mcbe-schemas
+git clone --depth=1 https://github.com/Blockception/Minecraft-bedrock-json-schemas.git ../mcbe-schemas
 ```
 
 Schema filenames are not always what you would guess - for example
@@ -316,15 +316,25 @@ on the next example, convert them to `.claude/skills/bedrock-<thing>/SKILL.md`.
 Writing the skill first encodes guesses that read as authority; see
 `docs/decisions.md`.
 
-| Skill | Covers |
-| ------- | -------- |
-| `bedrock-verify` | Mandatory gate. Run `scripts/verify.sh`, read `reports/<project>.mcr.json`, never claim done without a clean run. |
-| `bedrock-entity` | Component-group/event wiring as a state chart. The "every component group must be reachable from an event" invariant. Spawn rules. |
-| `bedrock-block` | Block states, permutations, geometry + culling, the `blocks.json` / `terrain_texture.json` / `textures/` three-way path contract. |
-| `bedrock-rp-wiring` | Render controller ↔ client entity ↔ geometry ↔ texture graph. Highest-failure area. |
-| `bedrock-molang` | Query namespaces, context validity, arrow-operator gotchas. |
-| `bedrock-jsonte` | `.templ` syntax, modules, when to template vs when to write literal JSON. |
-| `bedrock-regolith` | Filter pipeline, profiles, why `packs/` is never hand-edited. |
+| Planned skill | Notes file | Covers |
+| --- | --- | --- |
+| `bedrock-verify` | `docs/bedrock-verify-notes.md` | The gate: run it, read `reports/<project>.mcr.json`, never claim done without a clean run |
+| `bedrock-entity` | `docs/bedrock-entity-notes.md` | Component groups and events as a state chart; spawn rules |
+| `bedrock-block` | `docs/bedrock-block-notes.md` | States, permutations, culling, and the blocks.json / terrain_texture.json / textures three-way contract |
+| `bedrock-item` | `docs/bedrock-item-notes.md` | Item components, the icon/texture contract, recipes |
+| `bedrock-rp-wiring` | `docs/bedrock-rp-wiring-notes.md` | client entity -> geometry / texture / render controller graph. Highest-failure area |
+| `bedrock-molang` | `docs/bedrock-molang-notes.md` | Query namespaces, context validity, arrow-operator gotchas |
+| `bedrock-jsonte` | `docs/bedrock-jsonte-notes.md` | `.templ` syntax, modules, when to template vs write literal JSON |
+| `bedrock-regolith` | `docs/bedrock-regolith-notes.md` | Filter pipeline, profiles, export targets, source/output direction |
+| `bedrock-geometry` | `docs/model-authoring-agent.md` | Bone trees, pivots, box UV, the silhouette gate |
+| `bedrock-gametest` | `docs/gametest-notes.md` | GameTest structure, registration, assertions |
+
+Every one of these has a notes file already; **none is a skill yet.** The notes
+carry what has actually been verified, and say so plainly where nothing has
+been - `bedrock-molang` records that no Molang has been written rather than
+paraphrasing documentation. Add to them as things break; convert a file to
+`.claude/skills/<name>/SKILL.md` when it stops growing on the next example of
+the same thing.
 
 ### 8d. Permissions
 
