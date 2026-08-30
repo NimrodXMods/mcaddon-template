@@ -284,7 +284,7 @@ jsonte modules are how this repo gets a DSL-like authoring surface without a
 custom filter. The rule that makes it worth doing:
 
 > **A module owns a whole state machine — every component group, every event,
-> and every sensor that references them — or it owns none of it.**
+> and every sensor that references them — or it declares a dependency on one.**
 
 The failure this prevents is the one nothing warns you about: a component
 group that no event ever adds is dead code, and neither the engine nor
@@ -1096,12 +1096,13 @@ For a GameTest world: `mct exportworld -i . -o build`.
 | `mct fix` reports success but changes nothing | `setnewestminengineversion` prints "Updated 2 min_engine_version(s)" and returns `{"updatedCount": 2}` from `--json` while the file is byte-identical (md5-verified, 0.17.8). `setnewestformatversions` claims "No format versions to update" on files that are behind. Do not trust either; set versions by hand and confirm with `git diff`. `randomizealluids` does write, so check per-fix rather than assuming. |
 | `packs/BP/manifest.json` changed after a build | `mct exportaddon` resolves the latest registry version of each script module dependency and writes it back as an **array** (`[2, 9, 0]`) where a semver **string** (`"2.0.0"`) is correct for `module_name` deps. Arrays are only right for pack-UUID deps. It also strips the trailing newline. `scripts/deploy.sh` snapshots and restores the manifests; after a hand-run `exportaddon`, check `git diff packs/`. Only bites when the registry is reachable, which makes it look intermittent. |
 | `bump_manifest` writes into `packs/` | Expected, not corruption. It updates `packs/data/bump_manifest/version.json` so versions persist between builds - the documented exception to "filters never write to source". It does **not** touch dependency versions. |
-| Component silently ignored | `format_version` predates the component. |
+| Component silently ignored | `format_version` predates the component - **confirmed in game 2026-08-30**, and `mct validate` reported **0 errors** on the broken file, so the gate cannot catch it. Isolated with an A/B: two entities built from the same jsonte modules, byte-identical `component_groups` and `events`, differing only in `format_version`. At 1.8.0 the mob still wandered, still fled when hit, still re-entered `calm` afterwards - but `minecraft:environment_sensor` was dead, so it never aggroed. The drop is **per-component at parse time**, not whole-file. A mob that is "mostly working but one thing does nothing" is a `format_version` suspect first. Note this project declares 1.20.80 while vanilla is on 1.26.x. See `docs/bedrock-entity-notes.md`. |
 | Entity never changes state | Component group not reachable from any event. |
 | Two add-ons conflict on load | Duplicate UUIDs from an un-randomized template. |
 | Edits vanish | Something hand-edited the `com.mojang` export target; the next `regolith run` overwrote it. Edit `packs/` instead. |
 | Filter output missing from `packs/` | Expected, not a bug. Filters run against `.regolith/tmp`; generated files appear only in the export target. |
 | Extension flags valid code | Blockception avoids experimental features by design. mct is the authority. |
+| CADDONREQ102/104 on a **loot table** | The Cooperative Add-On folder rule is not textures-only. `loot_tables/entities/foo.json` - **vanilla's own layout** - fails, because `entities` is a common term. Use `loot_tables/<creatorshortname>/<mygamename>/<file>.json`. Note `spawn_rules/` is *not* subject to this and passes flat, so the rule is per-folder: check rather than assume. |
 | Texture validation errors CADDONREQ102/104/108 | Cooperative Add-On rules: textures may not sit loose in common-named folders. Required layout is `textures/<creatorshortname>/<gamename>/blocks&#124;items&#124;entity/*.png` (one of those three), and `<creatorshortname>` may contain exactly **one** subfolder (plus optionally `common`). See the template under `packs/RP/textures/addontemplate/template/`. |
 | Generated `.lang` file is empty | `name_ninja` emits nothing unless a `name` field is present in the BP description or `auto_name` is enabled per type. It needs separate `entities`/`blocks`/`items`/`spawn_eggs` settings blocks - enabling three of the four silently omits the fourth. |
 | Item is **invisible** (not magenta) | The `minecraft:icon` component shape is wrong, so nothing resolved. Magenta means a texture path resolved but the file is missing; invisible means the component itself was rejected. `minecraft:icon` is either a bare string or `{"textures": {"default": "<key>"}}` - `textures` plural, `default` required, `additionalProperties: false`. `{"texture": "x"}` is silently invalid. |

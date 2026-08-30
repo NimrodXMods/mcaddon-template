@@ -1,0 +1,70 @@
+{
+  // Third state: any damage sends the mob fleeing for a fixed time, then it
+  // returns to `calm` (whose sensor immediately re-aggros if you are still
+  // close, so flee -> calm -> aggro chains naturally).
+  //
+  // COUPLED TO proximity_aggro BY NAME. The `flee` event has to remove `calm`
+  // and `aggro`, so this module hardcodes group names it does not own. That
+  // breaks the clean "a module owns a whole state machine" rule from
+  // AGENTS.md section 4 - a third state is exactly where that rule starts to
+  // strain, which is the point of adding it. Always $extend both.
+  //
+  // Requires from the extending file's $scope:
+  //   flee_speed   - movement speed while panicking
+  //   flee_seconds - how long the panic lasts before returning to calm
+  "$module": "flee_on_damage",
+  "$template": {
+    "minecraft:entity": {
+      "components": {
+        // Base components, not a group: the sensor must be live in EVERY
+        // state, otherwise damage taken while aggro would not interrupt.
+        // Consequence worth watching in the playtest - damage taken while
+        // already fleeing re-fires `flee`, which removes two groups that are
+        // absent and adds one that is already present. Whether Bedrock treats
+        // that as a no-op or an error is untested, and whether it restarts
+        // the timer is the interesting part.
+        "minecraft:damage_sensor": {
+          "triggers": [
+            {
+              "cause": "all",
+              "deals_damage": "yes",
+              "on_damage": {
+                "event": "addontemplate:flee",
+                "target": "self"
+              }
+            }
+          ]
+        }
+      },
+      "component_groups": {
+        "fleeing": {
+          "minecraft:movement": { "value": "{{flee_speed}}" },
+          "minecraft:behavior.panic": {
+            "priority": 1,
+            "speed_multiplier": 1.25,
+            "force": false,
+            "ignore_mob_damage": false
+          },
+          "minecraft:timer": {
+            "time": "{{flee_seconds}}",
+            "looping": false,
+            "time_down_event": {
+              "event": "addontemplate:stop_fleeing",
+              "target": "self"
+            }
+          }
+        }
+      },
+      "events": {
+        "addontemplate:flee": {
+          "remove": { "component_groups": ["calm", "aggro"] },
+          "add": { "component_groups": ["fleeing"] }
+        },
+        "addontemplate:stop_fleeing": {
+          "remove": { "component_groups": ["fleeing"] },
+          "add": { "component_groups": ["calm"] }
+        }
+      }
+    }
+  }
+}

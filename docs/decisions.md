@@ -209,11 +209,37 @@ network before concluding the tool is broken.
 **released** Minecraft version. Never a preview, beta, or prerelease build.
 
 `min_engine_version` is `1.26.40` in both manifests - the value mct itself
-computes as newest supported. The tradeoff is deliberate: the pack will not
-load on clients older than that. For a template whose whole point is current
-practice, being current beats being broadly compatible; a project that needs
-older clients lowers it at instantiation and accepts that newer components
-silently do nothing.
+computes as newest supported.
+
+Earlier drafts framed this as a deliberate tradeoff against "broad
+compatibility". **That framing overstated the cost.**
+
+Bedrock network compatibility is **asymmetric**: an older client is refused by
+a newer server at any version difference, while a newer client can usually join
+a somewhat older server provided the gap is not too large. The pressure is
+therefore one-directional - staying on an old client progressively locks you
+out of multiplayer, so players update and the old-client population keeps
+draining. Combined with Realms forcing updates and Marketplace content
+targeting current, a high `min_engine_version` costs very little in practice.
+
+*Provenance: this is the project owner's understanding of Bedrock networking,
+including the hedge on how large a backward gap a newer client tolerates. It
+has not been measured here. Recorded because it is the reasoning behind the
+policy - but note the conclusion does not depend on the exact boundary. Even
+if the tolerated gap were wider than assumed, the one-directional pressure on
+players to update is what makes old clients rare.*
+
+The practical upshot: **there is no meaningful reason to hold any version
+back.** Target the newest released version everywhere and treat lowering it as
+an unusual, justified exception rather than a normal dial.
+
+That last clause is **no longer a prediction**. Confirmed in game 2026-08-30:
+an entity declaring `format_version` 1.8.0, byte-identical to a working one in
+every other respect, silently lost `minecraft:environment_sensor` while keeping
+everything else - and `mct validate` passed it with 0 errors. The practical
+rule is therefore simply **author new content at the newest released
+`format_version`**, per numbering line, and treat "one component does nothing"
+as a version symptom first. See `docs/bedrock-entity-notes.md`.
 
 **Do not use `mct fix setnewestminengineversion` to apply this.** It is a
 no-op that reports success - it prints "Updated 2 min_engine_version(s)" and
@@ -462,6 +488,21 @@ replacing the templating layer costs one skill rather than all of them.
   `@minecraft/server-gametest` dependency changes what the pack needs to load,
   so it is deliberate. See `docs/gametest-notes.md`.
 - **Whether the template ships a custom model.** Currently vanilla-only.
-- **`format_version` policy.** Values are currently whatever the template and
-  hand-authored files carry (`1.20.80` entity, `1.21.40` block/item, `1.10.0`
-  client entity). No project-wide rule has been set.
+- **Bringing existing files up to the `format_version` policy.** Not a question
+  of *whether* - the policy is decided and, with version-locked multiplayer,
+  there is no compatibility argument for holding back. Purely a question of
+  *when*. The files lag: `min_engine_version` is `1.26.40` while BP entities
+  declare `1.20.80` and block/item `1.21.40`, so anything added to those
+  formats since is silently unavailable - a failure now *confirmed*, not
+  theorised.
+
+  Bumping is not clerical. It **exposes components that were being dropped**,
+  which is a behaviour change to a mob that was just verified in game, so it
+  needs its own verify pass and playtest. Do it as an isolated change: bumping
+  while the spawn-rule question is still open would put two variables in flight
+  at once.
+
+  The numbering lines are independent - BP entity, RP client entity (`1.10.0`)
+  and spawn rules (`1.8.0`) each track their own. **Spawn rules are correct at
+  1.8.0**; that is what current vanilla still declares. This is not a
+  find-and-replace.

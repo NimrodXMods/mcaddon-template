@@ -93,6 +93,123 @@ summoned entity plausibly not firing the same event as a naturally spawned one
 would have left the mob with no state at all and no sensor to rescue it. It is
 not a problem.
 
+### `format_version` silently drops newer components - confirmed
+
+**Confirmed in game 2026-08-30**, and this is the single most useful gotcha in
+this file. A component **newer than the file's declared `format_version`** is
+silently ignored: no error, no warning, and `mct validate` reports **0
+errors**. It is the quiet failure behind "I added the component and nothing
+happened".
+
+Note the direction. An earlier draft of this file had it backwards, saying "a
+component *predating* the file's `format_version`". The file's version being
+older than the component is what breaks; the component being old is fine.
+
+The evidence is a controlled A/B. Three entities were built from the **same
+three jsonte modules** with the same `$scope`, so their `component_groups` and
+`events` are byte-identical - verified by diffing the expanded JSON, not by
+inspection. The **only** difference is `format_version`:
+
+| Entity | `format_version` | wanders | aggros | flees |
+| --- | --- | --- | --- | --- |
+| `stalker` | 1.20.80 | yes | **yes** | yes |
+| `fmtprobe_ancient` | 1.8.0 | yes | **no** | yes |
+
+(The probe entities were deleted once the result was in - do not go looking for
+them. Reproducing the experiment is a copy of `stalker.behavior.templ` with one
+field changed.)
+
+So at 1.8.0 everything works *except* `minecraft:environment_sensor`:
+
+- it **wanders** → `minecraft:entity_spawned` fired and applied `calm`
+- it **flees when hit** → `minecraft:damage_sensor`, the `flee` event,
+  `minecraft:timer` and `minecraft:behavior.panic` all work
+- it **wanders again afterwards** → `stop_fleeing` fired and re-applied `calm`
+- it **still never aggros** → the sensor inside `calm` is dead
+
+That last row is what makes this conclusive. `calm` was applied **twice**, by
+two different mechanisms, and the sensor failed both times - so this is not a
+one-off application glitch. The component is being dropped when the file is
+parsed. Component groups, events, behaviours and the other sensor are all
+unaffected; the drop is **per-component**, not whole-file.
+
+Practical consequences:
+
+- A mob that is "mostly working but one thing does nothing" is a
+  `format_version` suspect before it is a logic suspect.
+- The verify gate cannot catch this. `mct validate` passed clean on a file with
+  a dead component, which is a concrete limit of the gate worth remembering.
+- `minecraft:environment_sensor` specifically requires something newer than
+  1.8.0. The upper bound is not established here - see Awaiting playtest.
+- Vanilla entities in `bedrock-samples` currently declare **1.26.x**, while
+  this project's entities declare 1.20.80. Anything added since 1.20.80 is
+  silently unavailable here and would fail exactly this way. The
+  `format_version` policy is still listed as undecided in `docs/decisions.md`;
+  this is the argument for deciding it.
+
+### Three states, and what the third one proved
+
+`stalker` now runs three states - `calm` ↔ `aggro` on proximity, either →
+`fleeing` on damage, `fleeing` → `calm` on a timer - composed from three
+modules (`wandering`, `proximity_aggro`, `flee_on_damage`). All confirmed in
+game.
+
+- **A second transition source works.** Every earlier transition came from
+  `environment_sensor` proximity. `minecraft:damage_sensor` → event is a
+  different mechanism and it fires.
+- **`minecraft:timer` + `time_down_event` returns state unprompted** - a
+  transition with no external trigger at all.
+- **Degenerate transitions are safe.** `damage_sensor` lives in *base*
+  components, so hitting an already-fleeing mob re-fires `flee`, which removes
+  two groups that are absent and adds one already present. This is a **silent
+  no-op**, not an error - so the modules need no guards against it. (Whether it
+  *restarts* the timer was not measured.)
+- **Base components vs groups.** Putting `damage_sensor` in base rather than
+  per-state is what makes it fire from any state - and is also why flee
+  survives even when the state machine is broken, which is what made the
+  `format_version` probe ambiguous until wandering was checked separately.
+
+**The module rule strained here.** `flee_on_damage` must remove `calm` and
+`aggro` by name, so it hardcodes groups it does not own - breaking the clean
+"a module owns a whole state machine" rule in `AGENTS.md` section 4. Three
+states is where that rule stops being sufficient. It is not wrong, but it is
+incomplete: a module owns a machine, *or* it declares a dependency on one.
+
+### Spawn rules and loot tables
+
+Both are separate files, not entity components - the entity only *points* at
+the loot table.
+
+- Spawn rules live at `packs/BP/spawn_rules/<name>.spawn_rules.json` and use
+  `format_version` **1.8.0** - a *third* numbering line, distinct from the BP
+  entity (1.20.80) and the RP client entity (1.10.0). Copy the value from a
+  vanilla spawn rule, never from your entity.
+- `minecraft:loot` takes `{"table": "<path>"}`, relative to the **BP root**,
+  and the schema pins it to `^loot_tables/.*.json$` - the `loot_tables/`
+  prefix is part of the string, not implied.
+
+**Cooperative Add-On rules apply to `loot_tables/` too**, which is easy to miss
+because it is usually described as a texture rule. Copying vanilla's own layout
+(`loot_tables/entities/skeleton.json`) **fails the gate**:
+
+```
+[CADDONREQ102] Found an cooperative add-on common name folder 'entities' in a
+               parent folder pack\loot_tables.
+[CADDONREQ104] Found a loose file 'stalker.loot.json' in loot_tables\entities.
+```
+
+The working layout is the same shape as textures -
+`loot_tables/<creatorshortname>/<mygamename>/<file>.json`, here
+`loot_tables/addontemplate/template/stalker.loot.json`.
+
+**That non-vanilla path resolves at runtime** - confirmed in game, a killed
+stalker dropped from the table. Worth stating because moving off the layout
+every vanilla example uses looks like it should break lookup, and does not.
+
+`spawn_rules/` is **not** subject to this: a flat
+`spawn_rules/stalker.spawn_rules.json` passes clean. So the rule is per-folder,
+not global - do not assume, check.
+
 ### Driving state transitions from data
 
 `minecraft:environment_sensor` takes a `triggers` list of
@@ -111,8 +228,6 @@ Carried over from the original AGENTS.md research pass. Plausible, widely
 repeated, and untested by this project. Do not promote to a skill on this
 basis - confirm it first, then move it up.
 
-- A component predating the file's `format_version` is silently ignored. That
-  is the quiet failure behind "I added the component and nothing happened".
 - `is_summonable` gates `/summon` and `is_spawnable` gates the spawn egg. Both
   are `true` on both entities here and were never toggled independently, so
   which flag gates what is documentation, not observation.
@@ -121,15 +236,27 @@ basis - confirm it first, then move it up.
   blocks were enabled in a single commit, so a partial configuration never
   ran.
 
-## Open questions
+## Awaiting playtest
 
-- Spawn rules - still nothing authored, for either entity.
-- Loot tables - same.
-- **The exact transition distances are unmeasured.** The playtest confirmed the
-  cycle behaviourally, not numerically - "close enough" was not measured
-  against the configured 4-in / 12-out. To pin them down, stand at a known
-  distance and step in one block at a time; `/tp` to fixed coordinates beats
-  walking. Worth doing before treating the hysteresis gap as tuned rather than
-  merely working.
+- **Spawn rules.** Natural spawning has **not** worked yet. First attempt
+  (weight 40, bare single-test `biome_filter`, no `minecraft:despawn`) produced
+  nothing at night or in low light. Three things changed since, none yet
+  retested: `biome_filter` wrapped in `all_of` to match vanilla exactly, weight
+  raised to 100, and `minecraft:despawn` added to the entity (every vanilla
+  monster carries it, and a mob under `population_control: "monster"` that
+  never despawns holds its cap slot permanently).
+
+  Environmental confounds to rule out before blaming the file: mobs never spawn
+  within **24 blocks** of a player, difficulty must be above peaceful, and the
+  vanilla monster cap competes for slots.
+
+- **The upper bound on the `environment_sensor` cutoff is unestablished.** A
+  second probe at 1.16.0 was built but its behaviour was never separately
+  reported, and both probes have since been deleted. All that is established is
+  `> 1.8.0`. Re-establishing the bound means rebuilding a probe and bisecting
+  versions - cheap to redo (copy `stalker.behavior.templ`, change only
+  `format_version`), and only worth it if the exact cutoff ever matters.
+
+## Open questions
 - Component-group patterns worth templating beyond this one (tamed/wild,
   baby/adult).

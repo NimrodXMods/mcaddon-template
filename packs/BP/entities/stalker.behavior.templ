@@ -1,15 +1,20 @@
 {
-  // A mob that wanders obliviously until you get close, then chases you down.
+  // A mob that wanders obliviously until you get close, then chases you down -
+  // and runs away for a few seconds if you hurt it.
   //
-  // The whole state machine comes from the two modules below. Authoring a new
-  // mob of this shape means changing the identifier and the four numbers in
-  // $scope - not copying a component group and hoping its event came with it.
-  "$extend": ["wandering", "proximity_aggro"],
+  // Three states: calm <-> aggro on proximity, either -> fleeing on damage,
+  // fleeing -> calm on a timer. The whole machine comes from the modules
+  // below. Authoring a new mob of this shape means changing the identifier and
+  // the numbers in $scope - not copying component groups and hoping their
+  // events came with them.
+  "$extend": ["wandering", "proximity_aggro", "flee_on_damage"],
   "$scope": {
     "aggro_range": 4,
     "calm_range": 12,
     "calm_speed": 0.25,
-    "chase_speed": 0.45
+    "chase_speed": 0.45,
+    "flee_speed": 0.5,
+    "flee_seconds": 5
   },
   "$template": {
     "format_version": "1.20.80",
@@ -31,6 +36,11 @@
         // and attacks is not inanimate and vanilla filters key off this.
         "minecraft:type_family": { "family": ["addontemplate", "stalker", "monster", "mob"] },
         "minecraft:physics": {},
+        // Vanilla monsters all carry this, and a mob under
+        // population_control: "monster" that never despawns occupies its cap
+        // slot permanently. Side effect while testing: a summoned stalker can
+        // now vanish when you walk away.
+        "minecraft:despawn": { "despawn_from_distance": {} },
         "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true },
         "minecraft:movement.basic": {},
         "minecraft:navigation.walk": {
@@ -39,7 +49,15 @@
         },
         "minecraft:jump.static": {},
         "minecraft:attack": { "damage": 3 },
-        "minecraft:behavior.float": { "priority": 0 }
+        "minecraft:behavior.float": { "priority": 0 },
+        // Path is relative to the BP root and the schema pins it to
+        // ^loot_tables/.*.json$ - the directory prefix is not optional.
+        //
+        // NOT loot_tables/entities/ like vanilla: Cooperative Add-On rules
+        // reject `entities` as a common-term folder here exactly as they do
+        // under textures/ (CADDONREQ102/104). Copying vanilla's own layout
+        // fails the gate.
+        "minecraft:loot": { "table": "loot_tables/addontemplate/template/stalker.loot.json" }
       }
     }
   }
