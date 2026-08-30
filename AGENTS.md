@@ -112,6 +112,7 @@ git --version
 ## 2. Minecraft Creator Tools (Mojang, first-party)
 
 The backbone: validator, renderer, deployer, scaffolder, and MCP server.
+Source and issue tracker: <https://github.com/Mojang/minecraft-creator-tools>.
 
 ```bash
 npm install -g @minecraft/creator-tools
@@ -280,11 +281,21 @@ which drift every release.
 
 ### Canonical documentation
 
-| Reference | Use for |
-| --- | --- |
-| <https://learn.microsoft.com/en-us/minecraft/creator/> | The documentation of record: component references, Molang, manifests, tutorials. First-party (Microsoft/Mojang). |
-| <https://wiki.bedrock.dev/> | Bedrock Wiki - community tutorials and gotchas the official docs skip. |
-| <https://bedrock.dev/> | Community docs auto-generated from vanilla data - good for "what does vanilla actually contain". |
+| Reference | Context7 ID | Use for |
+| --- | --- | --- |
+| [Minecraft Creator docs](https://learn.microsoft.com/en-us/minecraft/creator/) | `/microsoftdocs/minecraft-creator` | The documentation of record: component references, Molang, manifests, tutorials. First-party (Microsoft/Mojang). |
+| [Script API reference](https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/) | `/websites/learn_microsoft_en-us_minecraft_creator_scriptapi` | `@minecraft/server*` module APIs, GameTest. |
+| [Bedrock Wiki](https://wiki.bedrock.dev/) | `/websites/wiki_bedrock_dev` | Community tutorials and gotchas the official docs skip. |
+| [bedrock.dev](https://bedrock.dev/) | `/websites/bedrock_dev` | Community docs auto-generated from vanilla data - "what does vanilla actually contain". |
+| [minecraft-creator-tools](https://github.com/Mojang/minecraft-creator-tools) | `/mojang/minecraft-creator-tools` | mct itself - command surface, defect reports, source of truth for its behaviour. |
+| [Regolith docs](https://regolith-docs.readthedocs.io/) | `/bedrock-oss/regolith` | Filter pipeline, profiles, `config.json` format. |
+| [Blockbench plugin docs](https://www.blockbench.net/wiki/docs/plugin/) | `/websites/web_blockbench_net` | The scripted model-manipulation route (see the model-authoring docs). |
+| [MCDevKit](https://mcdevkit.com) | *(not on Context7)* | jsonte, CommandLang, cmcc licensing. |
+
+The Context7 IDs are plain library identifiers usable by any agent with a
+Context7 MCP client (Claude's wiring is noted in `CLAUDE.md`); all resolved
+successfully on 2026-08-30. Prefer them over web search when digging into
+any of these tools.
 
 Precedence when sources disagree: what this project has **observed** beats
 all documentation (see the gotcha table - e.g. the official docs call the
@@ -351,12 +362,9 @@ Writing the skill first encodes guesses that read as authority; see
 | `bedrock-geometry` | `docs/model-authoring-agent.md` | Bone trees, pivots, box UV, the silhouette gate |
 | `bedrock-gametest` | `docs/gametest-notes.md` | GameTest structure, registration, assertions |
 
-Every one of these has a notes file already; **none is a skill yet.** The notes
-carry what has actually been verified, and say so plainly where nothing has
-been - `bedrock-molang` records that no Molang has been written rather than
-paraphrasing documentation. Add to them as things break; convert a file to
-`.claude/skills/<name>/SKILL.md` when it stops growing on the next example of
-the same thing.
+Each notes file separates lessons verified here from inherited research, and
+says plainly where nothing has been verified - `bedrock-molang` records that
+no Molang has been written rather than paraphrasing documentation.
 
 ### 8d. Permissions
 
@@ -406,8 +414,8 @@ For a fresh machine, prove each layer separately: `mct --version`,
 3. Regolith binary
 4. `regolith install` std-lib filters + jsonte + command_lang
 5. VS Code + Blockception extension; clone schemas repo
-6. Blockbench
-7. bridge. (optional, inspector role)
+6. [Blockbench](https://www.blockbench.net/)
+7. [bridge.](https://bridge-core.app) (optional, inspector role)
 8. Manual smoke test
 9. `.mcp.json`, `.claude/settings.json`, `CLAUDE.md`, skills
 10. `mrquentin/minecraft-skills` for the GameTest skill only
@@ -582,20 +590,11 @@ mct create -y -o . <name> <template> <creator> "<description>"
 mct create -y -o ./myproj                    # all defaults
 ```
 
-**`create` can appear to hang for many minutes.** That is a network symptom,
-not an mct defect: mct resolves script module dependencies
-(`@minecraft/server`, `@minecraft/server-ui`) against registry.npmjs.org, and a
-half-open connection - reachable but never completing - stalls it rather than
-failing fast. `--offline` does **not** prevent these lookups. Diagnosed from
-`--verbose`, which eventually prints:
-
-```
-Could not load registry for '@minecraft/server': Error: read ECONNRESET
-```
-
-If a command stalls, suspect the network before the tool. Run mct under
-`timeout` so a stall fails loudly - `scripts/verify.sh` and `scripts/deploy.sh`
-both do, defaulting to 60s.
+**`create` can appear to hang for many minutes.** That is a network stall,
+not an mct defect - see "An mct command runs for minutes" in the gotcha table
+(section 6 of the repo-structure part) for the diagnosis. Run mct under
+`timeout` so a stall fails loudly - `scripts/verify.sh` and
+`scripts/deploy.sh` both do, defaulting to 60s.
 
 Separately, and unrelated to the network: **`create` does not apply the name and
 creator arguments you pass.** The log claims it wrote
@@ -736,17 +735,12 @@ are downloaded and pinned, but never run. Per the Regolith docs:
 > you can append it to the end of the list of the filters of the profile by
 > using the `--profile` flag
 
-Two caveats learned the hard way:
-
-- **`--profile` only works on first install.** If the filter is already in
-  `filterDefinitions`, install refuses with *"The filter is already on the
-  filter definitions list"* and suggests `--update`. Do not use `--update`
-  just to wire a profile — it re-resolves and can bump your pinned versions.
-  Edit `config.json` by hand instead; the docs endorse this ("Alternatively,
-  manually add it to `config.json`").
-- **Filter order in the profile is the run order.** Expansion (`jsonte`) must
-  come before anything that scans the expanded result (`texture_list`,
-  `name_ninja`).
+One caveat learned the hard way: **`--profile` only works on first install.**
+If the filter is already in `filterDefinitions`, install refuses with *"The
+filter is already on the filter definitions list"* and suggests `--update`.
+Do not use `--update` just to wire a profile — it re-resolves and can bump
+your pinned versions. Edit `config.json` by hand instead; the docs endorse
+this ("Alternatively, manually add it to `config.json`").
 
 Note `name_ninja`'s `language` setting is deprecated in favour of `languages`,
 which takes a list:
@@ -775,29 +769,15 @@ short. Nothing is done until it exits 0.
 MCT_TIMEOUT=120 ./scripts/verify.sh
 ```
 
-What the script encodes, and why the obvious implementation is wrong:
-
-- The report is `reports/<project>.mcr.json`, **not** `reports/info.json`.
-- There is no `"type":"error"` string in it. Errors live in `info.errorCount`
-  and as items with `"iTp": 3`. Grepping for `"type":"error"` matches nothing,
-  so the gate passes on a broken project - the worst possible failure for a
-  gate. Read `info.errorSummary` for the human-readable list.
-- `mct validate` exits nonzero (4 observed), but the gate checks the exit code
-  **and** the report counts, so a change in either cannot silently disable it.
-  Beware measuring the exit code through a pipe - `mct ... | tail` gives you
-  `tail`'s status.
-- It deletes `build/` first. A `local`-target profile exports there, and mct
-  would then scan it alongside `packs/`, doubling every count.
-- mct calls are wrapped in `timeout` (60s, `MCT_TIMEOUT` to override). mct
-  resolves script module dependencies against registry.npmjs.org; a half-open
-  network stalls it for many minutes instead of failing. See the gotcha table.
-- `behaviorPackManifestCount` / `resourcePackManifestCount` read `0` even on a
-  healthy project. Do not use them as a health signal; `errorCount` is the one
-  that matters.
-
-`mct validate addon -i packs` also works and catches the same errors, but
-reports paths without the `packs/` prefix. `--threads` defaults to 8, caps
-at 16.
+Why the obvious implementation is wrong, in brief: the report is
+`reports/<project>.mcr.json` (not `info.json`) and contains no
+`"type":"error"` string — errors live in `info.errorCount` and in items with
+`"iTp": 3`, so the obvious grep matches nothing and passes every broken
+build. The gate therefore checks the mct exit code **and** the report
+counts, so a change in either cannot silently disable it. The rest of the
+report format and the gate's workarounds (summary fields, the misleading
+manifest-count fields, the `build/`/`out/` pre-delete, the `timeout`
+wrapper) are catalogued in `docs/bedrock-verify-notes.md`.
 
 **The gate does not deep-validate component payloads.** A malformed component
 reports zero errors. Only loading the pack in game catches that.

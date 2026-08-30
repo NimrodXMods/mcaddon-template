@@ -159,7 +159,8 @@ Plugin.register('height_randomizer', {
 });
 ```
 
-Docs: <https://www.blockbench.net/wiki/docs/plugin/>
+Docs: <https://www.blockbench.net/wiki/docs/plugin/> (Context7:
+`/websites/web_blockbench_net`)
 
 Note Blockbench uses `from`/`to` internally across all formats and emits
 Bedrock `origin`/`size` on export. Do not assume the in-memory representation

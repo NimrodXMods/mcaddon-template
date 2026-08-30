@@ -221,7 +221,8 @@ mct rendervanilla mob minecraft:creeper -o creeper.png
 ## Preferred automation route
 
 If asked to script model manipulation, write a **Blockbench plugin**
-(<https://www.blockbench.net/wiki/docs/plugin/>) rather than editing
+(<https://www.blockbench.net/wiki/docs/plugin/>; Context7
+`/websites/web_blockbench_net`) rather than editing
 `.geo.json` files. Wrap edits in `Undo.initEdit` / `Undo.finishEdit` and call
 `Canvas.updateView`. Blockbench uses `from`/`to` in memory and emits
 `origin`/`size` on export — do not assume they match.

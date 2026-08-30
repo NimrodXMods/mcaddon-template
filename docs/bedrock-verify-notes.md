@@ -34,6 +34,10 @@ without a clean run.
 - **The gate does not validate component payloads.** A malformed component
   reports zero errors. Only loading the pack in game catches that.
 
+- `mct validate addon -i packs` also works and catches the same errors, but
+  reports paths without the `packs/` prefix. `--threads` defaults to 8, caps
+  at 16.
+
 ## mct behaviour the gate has to work around
 
 - `mct validate` is fast - about 7 seconds here. Anything from mct running for
