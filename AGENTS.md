@@ -60,6 +60,12 @@ is for this file to eventually shed material into focused skills under
 `.claude/skills/`; until then it stays here, and staying accurate matters more
 than staying short.
 
+Maintenance TODO:
+
+- Link-rot pass over the external URLs in this file and `docs/` (the
+  MCDevKit site, the Regolith docs, the Blockbench wiki, and especially the
+  small third-party repos surveyed in `docs/model-authoring-human.md` 5a).
+
 ## Bedrock Add-On Toolchain + Claude Code Harness Setup
 
 Target: a shell-driven agent harness (Claude Code CLI/TUI) with VS Code as the
@@ -272,6 +278,22 @@ Keep the clone on disk regardless of editor: the **agent** should read raw
 schema files rather than rely on training-data recall of component names,
 which drift every release.
 
+### Canonical documentation
+
+| Reference | Use for |
+| --- | --- |
+| <https://learn.microsoft.com/en-us/minecraft/creator/> | The documentation of record: component references, Molang, manifests, tutorials. First-party (Microsoft/Mojang). |
+| <https://wiki.bedrock.dev/> | Bedrock Wiki - community tutorials and gotchas the official docs skip. |
+| <https://bedrock.dev/> | Community docs auto-generated from vanilla data - good for "what does vanilla actually contain". |
+
+Precedence when sources disagree: what this project has **observed** beats
+all documentation (see the gotcha table - e.g. the official docs call the
+`{"texture": ...}` form of `minecraft:icon` merely *deprecated*, but here it
+rendered the item invisible); the schemas in `../mcbe-schemas/` beat prose
+docs for component shapes; the official docs beat community docs; and any of
+these beats recall. Prefer `en-us` URLs when linking - other locales
+(`en-ca`) redirect but are not canonical.
+
 ### VS Code mappings
 
 The upstream repo ships `vscode-settings.json` at its root with 60+
@@ -410,6 +432,20 @@ are the source you edit. On `regolith run`, regolith copies them into
 `.regolith/tmp`, runs the filter chain against that copy, and exports the
 result to the profile's export target — by default the `development_*_packs`
 folders under `com.mojang`. It never writes back into `packs/`.
+
+**Where `com.mojang` is** (verified 2026-08-30: regolith exports here and the
+game loads the add-on from here):
+
+```
+%APPDATA%\Minecraft Bedrock\Users\Shared\games\com.mojang
+```
+
+An old UWP install can leave a second, stale tree at
+`%LOCALAPPDATA%\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang`
+that the current game does **not** read — on this machine its
+`development_behavior_packs` sits empty while the path above receives the
+exports. If a deployed pack never shows up in game, check which tree is
+receiving writes (file timestamps) before blaming the pipeline.
 
 Two exceptions, neither of them regolith's doing:
 

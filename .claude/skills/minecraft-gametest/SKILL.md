@@ -8,14 +8,25 @@ version: 1.0.0
 
 You are an expert in the Minecraft GameTest Framework for Bedrock Edition. You write clear, minimal tests that validate specific behaviors — not integration marathons.
 
+> **Provenance and status (audited 2026-08-30):** imported third-party skill.
+> GameTest has **never been exercised in this repo** — Beta APIs are off by
+> design (see `docs/decisions.md`), so nothing below is verified by this
+> project. The registration API, batch callbacks, and `RegistrationBuilder`
+> chaining were spot-checked against the official Script API reference on the
+> audit date and are current; items marked *unverified* below were not found
+> there. Dependency versions in examples age fast — always check the live
+> docs. For this repo's specifics (entry point `scripts/main.js`, structure
+> namespace `addontemplate`, deploy via `regolith run` rather than hand-copy),
+> see `docs/gametest-notes.md`.
+
 ## Documentation References
 
 Always fetch fresh docs before writing test code — the API is versioned and beta APIs evolve:
 
-- **Getting started guide**: `https://learn.microsoft.com/en-ca/minecraft/creator/documents/gametestgettingstarted`
-- **Building your first GameTest**: `https://learn.microsoft.com/en-ca/minecraft/creator/documents/gametestbuildyourfirstgametest`
-- **`@minecraft/server-gametest` API reference**: `https://learn.microsoft.com/en-ca/minecraft/creator/scriptapi/minecraft/server-gametest/minecraft-server-gametest`
-- **Scripting setup (TypeScript)**: `https://learn.microsoft.com/en-ca/minecraft/creator/documents/scriptinggettingstarted`
+- **Getting started guide**: `https://learn.microsoft.com/en-us/minecraft/creator/documents/gametestgettingstarted`
+- **Building your first GameTest**: `https://learn.microsoft.com/en-us/minecraft/creator/documents/gametestbuildyourfirstgametest`
+- **`@minecraft/server-gametest` API reference**: `https://learn.microsoft.com/en-us/minecraft/creator/scriptapi/minecraft/server-gametest/minecraft-server-gametest`
+- **Scripting setup (TypeScript)**: `https://learn.microsoft.com/en-us/minecraft/creator/documents/scriptinggettingstarted`
 - **Official example tests**: `https://github.com/microsoft/minecraft-gametests`
 - **Scripting samples (TypeScript starter)**: `https://github.com/microsoft/minecraft-scripting-samples`
 
@@ -42,10 +53,18 @@ my-tests/
     └── MyTests.js                      # or MyTests.ts with build step
 ```
 
-Deploy to:
+Deploy to the `development_behavior_packs` folder under `com.mojang`. On the
+current Bedrock launcher that is (verified on this machine):
+
 ```
-%APPDATA%\Roaming\Minecraft\development_behavior_packs\my-tests\
+%APPDATA%\Minecraft Bedrock\Users\Shared\games\com.mojang\development_behavior_packs\my-tests\
 ```
+
+An older UWP install may leave a stale
+`%LOCALAPPDATA%\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang`
+tree the game no longer reads — check file timestamps to see which tree
+actually receives writes. In this repo you never hand-copy at all:
+`regolith run` (default profile) exports there.
 
 ### manifest.json
 
@@ -72,15 +91,20 @@ Deploy to:
   "dependencies": [
     {
       "module_name": "@minecraft/server",
-      "version": "1.13.0-beta"
+      "version": "<check current docs - e.g. \"beta\" or a stable \"2.x\">"
     },
     {
       "module_name": "@minecraft/server-gametest",
-      "version": "1.0.0-beta"
+      "version": "<check current docs - the module is still pre-release/beta>"
     }
   ]
 }
 ```
+
+**Do not copy dependency versions from examples** — they age. Read the current
+values from the getting-started guide linked above, or from a freshly
+scaffolded `mct` project. (`@minecraft/server-gametest` remains pre-release,
+which is why Beta APIs must be enabled.)
 
 **Always use separate UUIDs for `header` and each `modules` entry.** Generate via `uuidgen` or an online tool.
 
@@ -172,6 +196,12 @@ test.assertRedstonePower(pos, 15);
 test.assertIsWaterlogged(pos, true);
 ```
 
+`MinecraftBlockTypes` / `MinecraftItemTypes` / `MinecraftEntityTypes` come
+from **`@minecraft/vanilla-data`** in current official examples
+(`import { MinecraftBlockTypes } from '@minecraft/vanilla-data'`) — do not
+expect them from `@minecraft/server`. Plain string ids (`'minecraft:stone'`)
+also work.
+
 ### Completion
 
 ```typescript
@@ -191,9 +221,13 @@ test.succeedWhenBlockPresent(MinecraftBlockTypes.Stone, pos, true);
 
 ```typescript
 test.idle(20);                       // async: wait N ticks (use with await)
-test.walkTo(player, pos, 1);         // async: simulated player walks to pos
 test.print('debug message');         // log to test output
 ```
+
+To move a simulated player, use the player's own navigation methods
+(`player.navigateToLocation(pos, speed)` / `player.moveToLocation(pos)` —
+see Simulated Player below). A `test.walkTo(...)` method appears in older
+material but is **not in the current API reference**.
 
 ### Simulated Player
 
@@ -219,9 +253,10 @@ Every test needs a `.mcstructure` file that defines the environment:
 5. Name it (e.g., `my-tests:my_structure`) — **namespace must match your pack id**
 6. Set bounds to encompass the build
 7. Click **Save**
-8. Copy the exported `.mcstructure` from:
+8. Copy the exported `.mcstructure` from the `structures/` folder under
+   `com.mojang` (current launcher, verified path root on this machine):
    ```
-   %APPDATA%\Roaming\Minecraft\games\com.mojang\structures\
+   %APPDATA%\Minecraft Bedrock\Users\Shared\games\com.mojang\structures\
    ```
 9. Place in `structures/my-tests/my_structure.mcstructure`
 
@@ -239,6 +274,10 @@ Every test needs a `.mcstructure` file that defines the environment:
 | `/gametest runbatch <batchName>` | Run tests tagged with a batch |
 
 Tests spawn structures starting at your position. Use a flat, open area.
+
+*(Command table unverified beyond `run`/`runset`/`runall`: the current docs
+confirm those; `runthis`, `clearall`, and `runbatch` were not re-verified in
+the 2026-08-30 audit — check `/gametest` tab-completion in game.)*
 
 ## Test Organization Guidelines
 

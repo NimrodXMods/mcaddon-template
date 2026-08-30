@@ -56,6 +56,21 @@ introspection, not a dependency — the real verify loop is
 `./scripts/verify.sh` through the Bash tool. Do not architect around the MCP
 server.
 
+**Context7**: the claude.ai Context7 connector carries the Bedrock
+documentation named in `AGENTS.md` ("Canonical documentation"). Library IDs,
+verified working 2026-08-30:
+
+- `/microsoftdocs/minecraft-creator` — official creator docs (the big one)
+- `/websites/wiki_bedrock_dev` — Bedrock Wiki
+- `/websites/bedrock_dev` — bedrock.dev
+- `/websites/learn_microsoft_en-us_minecraft_creator_scriptapi` — Script API
+  reference
+- `/mojang/minecraft-creator-tools` — mct itself
+
+Use these for prose documentation lookups. They do not change the schema
+rule: `../mcbe-schemas/` stays the authority for component shapes, and
+observed behaviour recorded in `AGENTS.md`/`docs/` beats any documentation.
+
 **Skills**: `.claude/skills/` currently contains only `minecraft-gametest`.
 The seven `bedrock-*` skills listed in `AGENTS.md` section 8c are a roadmap,
 not an inventory — do not assume one exists because it is named there.
