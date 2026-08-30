@@ -193,11 +193,81 @@ network before concluding the tool is broken.
 
 ---
 
+## Version policy: latest stable, never preview or beta
+
+**Decided.** `min_engine_version` and `format_version` track the newest
+**released** Minecraft version. Never a preview, beta, or prerelease build.
+
+`min_engine_version` is `1.26.40` in both manifests - the value mct itself
+computes as newest supported. The tradeoff is deliberate: the pack will not
+load on clients older than that. For a template whose whole point is current
+practice, being current beats being broadly compatible; a project that needs
+older clients lowers it at instantiation and accepts that newer components
+silently do nothing.
+
+**Do not use `mct fix setnewestminengineversion` to apply this.** It is a
+no-op that reports success - it prints "Updated 2 min_engine_version(s)" and
+returns `{"updatedCount": 2}` from `--json` while leaving the file byte-for-byte
+identical (verified by md5 on 0.17.8). `setnewestformatversions` reports "No
+format versions to update" on files that are demonstrably behind. Set both by
+hand and confirm with `git diff`. `mct fix randomizealluids` *does* write, so
+the defect is per-fix, not a general property of `mct fix`.
+
+Content `format_version` values are currently mixed (`1.20.80` entity,
+`1.21.40` block/item, `1.10.0` client entity) - each valid, none yet
+deliberately chosen. Bumping one changes component semantics, so raise them
+per-file when touching that file, not in a sweep.
+
+---
+
+## No Beta APIs in the base template
+
+**Decided.** The template assumes production. The BP manifest depends only on
+`@minecraft/server` and `@minecraft/server-ui`, both stable; no
+`@minecraft/server-gametest`, and the test world does not enable the Beta APIs
+experiment.
+
+The cost is that GameTest cannot run against the template as shipped. That is
+accepted: a beta dependency changes what the pack requires to load, and a
+template that cannot be shipped to production is worse than one that cannot
+self-test. Enabling Beta APIs is a decision made **at instantiation**, per
+project, not inherited from the template.
+
+**Revisit if:** the GameTest APIs stabilise out of beta.
+
+---
+
+## Skills are written after the work, not before
+
+**Decided.** A `bedrock-<thing>` skill is only written once a *real* example of
+that thing has been authored end to end - designed, built, validated, and
+confirmed in game. Until then, notes accumulate in `docs/<thing>-notes.md`.
+
+The reason is this project's own history: nearly every durable rule here came
+from something failing in a way no amount of upfront reasoning predicted - the
+invisible item's `minecraft:icon` shape, the Cooperative Add-On texture layout,
+`exportaddon` rewriting manifests, `mct fix` lying about success. A skill
+written before that experience would have encoded plausible guesses, which is
+worse than no skill, because it reads as authoritative.
+
+The lifecycle:
+
+1. Author the thing for real. Keep notes in `docs/<thing>-notes.md` as you go -
+   especially the failures and the things that were not obvious.
+2. When the notes stop growing on the next example of the same thing, they have
+   converged.
+3. Convert `docs/<thing>-notes.md` into `.claude/skills/bedrock-<thing>/SKILL.md`.
+
+`AGENTS.md` section 8c lists the planned skills. That is a roadmap, not an
+inventory.
+
+---
+
 ## Not yet decided
 
 - **Whether to enable Beta APIs.** Required for GameTest. Adding a
   `@minecraft/server-gametest` dependency changes what the pack needs to load,
-  so it is deliberate. See `tests/gametest/README.md`.
+  so it is deliberate. See `docs/gametest-notes.md`.
 - **Whether the template ships a custom model.** Currently vanilla-only.
 - **`format_version` policy.** Values are currently whatever the template and
   hand-authored files carry (`1.20.80` entity, `1.21.40` block/item, `1.10.0`

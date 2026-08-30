@@ -272,6 +272,20 @@ Keep the clone on disk regardless of editor: the **agent** should read raw
 schema files rather than rely on training-data recall of component names,
 which drift every release.
 
+### VS Code mappings
+
+The upstream repo ships `vscode-settings.json` at its root with 60+
+`json.schemas` entries whose `url`s are remote `raw.githubusercontent.com`
+links - so the editor needs no local clone.
+
+Its `fileMatch` globs key off `behavior_packs/*/` or a leading `*BP*/` segment,
+which does **not** match this project's `packs/BP/` layout. This repo therefore
+keeps its own `.vscode/settings.json` with 27 explicit mappings using
+`packs/BP` / `packs/RP` prefixes, pointed at those same remote URLs. Remote
+rather than `../mcbe-schemas/...` on purpose: the mappings then survive the
+clone being moved or deleted. Copy patterns from upstream when adding a content
+type; keep the prefixes.
+
 ## 8. Claude Code harness config
 
 ### 8a. MCP server
@@ -294,6 +308,13 @@ guesses.
 **Status: none of these exist yet.** The only skill currently installed is
 `minecraft-gametest`. The table below is a roadmap, not an inventory - do not
 assume a skill is available because it is listed here.
+
+**A skill is written only after a real example of that thing has been authored
+end to end** - built, validated, and confirmed in game. Until then, notes go in
+`docs/<thing>-notes.md` and grow as things break. When the notes stop growing
+on the next example, convert them to `.claude/skills/bedrock-<thing>/SKILL.md`.
+Writing the skill first encodes guesses that read as authority; see
+`docs/decisions.md`.
 
 | Skill | Covers |
 | ------- | -------- |
@@ -451,11 +472,10 @@ my-addon/
 │   ├── verify.sh
 │   └── deploy.sh
 │
-├── tests/
-│   └── gametest/               # GameTest specs
-│
-├── docs/
-│   └── decisions.md            # why format_version X, why this wiring
+├── docs/                       # notes that are not yet skills
+│   ├── decisions.md            # why the project is shaped this way
+│   ├── gametest-notes.md
+│   └── model-authoring-*.md
 │
 ├── .regolith/                  # gitignored - filter cache + tmp
 ├── build/                      # gitignored
@@ -866,6 +886,7 @@ For a GameTest world: `mct exportworld -i . -o build`.
 | Symptom | Cause |
 | --------- | ------- |
 | Mob is invisible or magenta | RP wiring graph break. No error is emitted. |
+| `mct fix` reports success but changes nothing | `setnewestminengineversion` prints "Updated 2 min_engine_version(s)" and returns `{"updatedCount": 2}` from `--json` while the file is byte-identical (md5-verified, 0.17.8). `setnewestformatversions` claims "No format versions to update" on files that are behind. Do not trust either; set versions by hand and confirm with `git diff`. `randomizealluids` does write, so check per-fix rather than assuming. |
 | `packs/BP/manifest.json` changed after a build | `mct exportaddon` resolves the latest registry version of each script module dependency and writes it back as an **array** (`[2, 9, 0]`) where a semver **string** (`"2.0.0"`) is correct for `module_name` deps. Arrays are only right for pack-UUID deps. It also strips the trailing newline. `scripts/deploy.sh` snapshots and restores the manifests; after a hand-run `exportaddon`, check `git diff packs/`. Only bites when the registry is reachable, which makes it look intermittent. |
 | `bump_manifest` writes into `packs/` | Expected, not corruption. It updates `packs/data/bump_manifest/version.json` so versions persist between builds - the documented exception to "filters never write to source". It does **not** touch dependency versions. |
 | Component silently ignored | `format_version` predates the component. |

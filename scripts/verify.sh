@@ -26,8 +26,9 @@ regolith run ${PROFILE}
 # A "local"-target profile exports into build/, which mct would then scan
 # alongside packs/ - double-validating everything and doubling error counts.
 # build/ is derived and gitignored; produce release artifacts with
-# `mct exportaddon` as a separate step, not from here.
-rm -rf build
+# `mct exportaddon` as a separate step, not from here. out/ is mct's own
+# default output directory and inflates the scan the same way.
+rm -rf build out
 
 echo
 echo "==> mct validate addon"
@@ -103,4 +104,22 @@ if (mctExit !== "0") {
 console.log("clean  " + report);
 console.log("  files scanned: " + (info.contentFileCounts || 0) +
             " content / " + (info.fileCounts || 0) + " total");
+
+// Non-fatal. mct records recommendations as items with iTp 6 and counts
+// warnings separately; neither affects errorCount, so both are invisible
+// unless printed here. Human-readable text lives in info.summary[gId][gIx].
+const summary = info.summary || {};
+const text = (it) => ((summary[it.gId] || {})[String(it.gIx)] || {}).defaultMessage || it.gId;
+const recs = (d.items || []).filter(i => i.iTp === 6);
+
+if (info.warningCount) {
+  console.log("  warnings: " + info.warningCount);
+  if (info.warningSummary) console.log(info.warningSummary);
+}
+if (recs.length) {
+  console.log("  recommendations: " + recs.length + " (non-fatal)");
+  for (const r of recs) {
+    console.log("    - " + (r.p ? r.p + ": " : "") + text(r));
+  }
+}
 ' "$REPORT" "$MCT_EXIT"

@@ -1,6 +1,6 @@
 # GameTest
 
-**Status: not wired up.** Nothing here runs yet. These are templates to copy
+**Status: not wired up.** Notes only, per the skill policy in `docs/decisions.md`. Nothing here runs yet. These are templates to copy
 into the behavior pack, not a working suite.
 
 ## Where GameTests actually live
@@ -19,9 +19,11 @@ packs/BP/
       example.mcstructure     # human-exported, see below
 ```
 
-This `tests/gametest/` folder holds drafts and notes only. Moving a test here
-does not disable it; wiring it into `packs/BP/scripts/index.js` is what makes
-it run.
+This file holds notes and drafts only - it is not code and nothing here runs.
+Wiring a test into `packs/BP/scripts/index.js` is what makes it run. Per the
+skill policy in `docs/decisions.md`, these notes become
+`.claude/skills/bedrock-gametest/SKILL.md` once GameTests have actually been
+authored and run against real content.
 
 ## Two blockers before any test can run
 
@@ -30,10 +32,11 @@ it run.
    block to Save mode, name it `addontemplate:<name>`, save, then copy the file
    out of `com.mojang/structures/`. An agent cannot author one.
 2. **Beta APIs must be enabled** on the test world, and the BP manifest needs a
-   `@minecraft/server-gametest` dependency. Neither is set on this project - the
-   manifest currently depends only on `@minecraft/server` and
-   `@minecraft/server-ui`, both stable. Adding a beta dependency changes what
-   the pack requires to load, so it is a deliberate decision, not a default.
+   `@minecraft/server-gametest` dependency. **The base template deliberately
+   does not enable these** - it assumes production, and the manifest depends
+   only on stable `@minecraft/server` and `@minecraft/server-ui`. Enabling Beta
+   APIs is a per-project decision made at instantiation. See
+   `docs/decisions.md`.
 
 ## Template
 
