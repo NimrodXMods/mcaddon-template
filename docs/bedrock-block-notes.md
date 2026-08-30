@@ -17,8 +17,8 @@ Block states and permutations, geometry and culling, and the
 
 - `minecraft:geometry: "minecraft:geometry.full_block"` is the no-custom-model
   path and is enough for a placeholder block.
-- `menu_category` is what puts it in the creative inventory. Without it the
-  block exists but cannot be found by hand.
+- `menu_category: {"category": "construction"}` is set here and the block
+  shows up in the creative inventory.
 - Textures must follow the Cooperative Add-On layout -
   `textures/<creator>/<gamename>/blocks/*.png`, exactly one folder under the
   creator namespace. See `CADDONREQ102/104/108`.
@@ -39,6 +39,9 @@ basis - confirm it first, then move it up.
   `material_instances` texture key must exist in `terrain_texture.json`, whose
   `textures` path must point at a real file, and `blocks.json` ties the
   identifier to that key. Break any link and you get magenta with no error.
+- Without `menu_category` the block would exist but be unfindable by hand.
+  The block here has had the field since its first commit, so the without
+  case was never observed.
 
 The contract itself is real - all three files were written and the block renders.
 What is untested is the **failure** mode: no link was ever deliberately broken,

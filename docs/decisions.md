@@ -97,9 +97,9 @@ Note the settings are **per type** — `entities`, `blocks`, `items` and
 
 **Decided.** `default` exports to `development` (com.mojang) for local work.
 `ci` is identical but exports to `local`, because CI runners have no
-`com.mojang`. `build` is the same set of filters exporting to `local`, invoked
-only by `scripts/deploy.sh`; it originally carried `bump_manifest`, which was
-removed (see below).
+`com.mojang`. `build` is the same set of filters **plus `bump_manifest`**, exporting to
+`local`, invoked only by `scripts/deploy.sh` (see the `bump_manifest` entry
+below for its brief removal and reinstatement).
 
 `scripts/verify.sh` takes the profile as an optional argument, so there is one
 gate rather than three.
@@ -142,22 +142,32 @@ Shell scripts must stay LF everywhere: `bash` fails on a CR in the shebang, and
 
 ---
 
-## `bump_manifest` is not used
+## `bump_manifest` was wrongly blamed; it is used, in the `build` profile
 
-**Decided, after it broke something.** The filter was added to a `build`
-profile, then removed when a test run corrupted the behavior pack manifest: it
-rewrote `"@minecraft/server": "2.0.0"` to `[2, 9, 0]`. Module dependencies take
-semver **strings**; version arrays are for pack-UUID dependencies. The filter
-does not distinguish between the two, and invented a version number in the
-process. It also strips the trailing newline.
+**Decided, after a mis-attribution.** During a packaging test run,
+`packs/BP/manifest.json` came back corrupted - `"@minecraft/server": "2.0.0"`
+rewritten to `[2, 9, 0]` - and `bump_manifest`, newly added to the `build`
+profile and named like a thing that rewrites manifests, was blamed and
+removed. Isolation later showed the corruption was **`mct exportaddon`**: it
+resolves the latest registry version of each script module dependency and
+writes it back as an array, where `module_name` dependencies take semver
+**strings** (arrays are for pack-UUID dependencies). It also strips the
+trailing newline. `bump_manifest` does not touch dependency versions at all.
 
-Separately, it writes into `packs/` - the documented exception to filters never
-touching source, since the bumped version has to persist between builds. That
-alone is manageable; silently corrupting a dependency is not.
+So: `bump_manifest` is back in the `build` profile and release builds
+increment manifest versions, while `scripts/deploy.sh` snapshots and restores
+the source manifests around `exportaddon`. The filter's documented write into
+`packs/` (its `packs/data/bump_manifest/version.json` state file, so bumps
+persist between builds) is expected behaviour, not corruption - though note
+that file has not actually changed since the initial commit, so the
+state-file write itself has not been observed here.
 
-**Revisit if:** the filter learns the difference between the two dependency
-shapes, or the project stops declaring script module dependencies. Until then,
-bump versions by hand at release time.
+**Lesson worth keeping:** blame was assigned to the obvious suspect before
+isolation, and documented across several files before being proven wrong -
+the same arc as the mct "hang" entry below. Isolate before attributing.
+
+**Revisit if:** `mct exportaddon` stops rewriting source manifests - then the
+deploy.sh snapshot/restore guard can go.
 
 ---
 

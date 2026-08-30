@@ -50,8 +50,6 @@ without a clean run.
 - `mct exportaddon` rewrites `packs/BP/manifest.json`, converting script module
   dependency versions from semver strings to arrays. `scripts/deploy.sh`
   snapshots and restores the manifests around it.
-- `mct create` ignores the name and creator arguments and leaves the raw
-  template on disk.
 - The script takes a profile argument (`./scripts/verify.sh ci`) because the
   default profile exports to `com.mojang`, which a CI runner does not have.
 

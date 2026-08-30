@@ -19,11 +19,14 @@ could be guessed from the schema does not need writing down.
 - It scopes **both** `data/jsonte` and `data/json_templating_engine`. A
   `Skipping non-existent scope file` warning for whichever you do not have is
   benign - do not rename your data folder chasing it.
-- Expanded output exists only in the export target, never in `packs/`. A
-  `packs/` diff shows what you wrote, not what the game loads.
-- jsonte needs Java 11+ as a standalone CLI, but the Regolith filter uses a
-  bundled platform binary - so a Regolith-only workflow needs no Java on the
-  machine or in CI.
+- Filter output exists only in the export target, never in `packs/` - a
+  `packs/` diff shows what you wrote, not what the game loads. Observed with
+  `texture_list` and `name_ninja` output; jsonte runs against the same
+  `.regolith/tmp` copy, but its own expansion has never run here (see below).
+- The Regolith filter never invokes Java: its cached `filter.json` runs the
+  bundled binary directly (`runWith: "exe"`), so a Regolith-only workflow
+  needs no Java. (A green CI does not prove this on its own - GitHub runners
+  ship Java - but the filter definition does.)
 
 ## Inherited from research - NOT verified here
 
@@ -33,6 +36,8 @@ basis - confirm it first, then move it up.
 
 - Filter order matters: jsonte must run before anything that scans the expanded
   output (`texture_list`, `name_ninja`).
+- The standalone jsonte CLI needs Java 11+. It has never been run in this
+  project.
 
 Filters demonstrably run top-to-bottom, and `texture_list` and `name_ninja` were
 both observed consuming files that existed before them. But **no template has

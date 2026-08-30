@@ -653,7 +653,6 @@ Then edit `config.json` so `packs` points at the mct-generated folders:
       "default": {
         "filters": [
           { "filter": "jsonte" },
-          { "filter": "command_lang" },
           { "filter": "texture_list" },
           { "filter": "name_ninja", "settings": { "language": "en_US.lang" } }
         ],
@@ -662,7 +661,6 @@ Then edit `config.json` so `packs` points at the mct-generated folders:
       "build": {
         "filters": [
           { "filter": "jsonte" },
-          { "filter": "command_lang" },
           { "filter": "texture_list" },
           { "filter": "name_ninja" },
           { "filter": "bump_manifest" }

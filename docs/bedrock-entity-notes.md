@@ -15,16 +15,16 @@ for a single entity.
 
 ## Confirmed lessons
 
-- A minimal working entity is very small: `identifier`, `is_spawnable`,
-  `is_summonable`, plus `minecraft:health`, `collision_box`, `type_family`,
-  `physics`. Start there and add.
-- `is_summonable` gates `/summon`; `is_spawnable` gates the spawn egg. Set both
-  while iterating or you will think the entity is broken when it is not
-  reachable.
+- A working entity is very small. The one here is `identifier`,
+  `is_spawnable`, `is_summonable`, plus five components - `minecraft:health`,
+  `collision_box`, `type_family`, `physics`, `pushable` - and it renders in
+  game. Whether any of the five can be dropped has not been tested; the file
+  has carried all five since its first commit.
 - The spawn egg is defined on the **RP** side (`spawn_egg` in the client
   entity), not the BP.
-- `name_ninja` needs a separate `spawn_eggs` settings block; enabling
-  `entities` alone silently leaves the egg unnamed.
+- `name_ninja` names the spawn egg from its own `spawn_eggs` settings block,
+  separate from `entities`. Both are enabled here and both lines appear in the
+  generated `.lang`.
 - Lang keys are per-type and not guessable: `entity.<id>.name` for the entity,
   `item.spawn_egg.entity.<id>.name` for its egg. `name_ninja` with `auto_name`
   generates both correctly from the identifier - prefer that to hand-writing
@@ -44,8 +44,15 @@ basis - confirm it first, then move it up.
   nothing warns you - not the engine, not `mct validate`.
 - A component predating the file's `format_version` is silently ignored. That
   is the quiet failure behind "I added the component and nothing happened".
+- `is_summonable` gates `/summon` and `is_spawnable` gates the spawn egg. Both
+  are `true` here and were never toggled independently, so which flag gates
+  what is documentation, not observation.
+- Enabling `name_ninja`'s `entities` block but not `spawn_eggs` would leave
+  the egg unnamed. Inferred from the per-type settings structure; all four
+  blocks were enabled in a single commit, so a partial configuration never
+  ran.
 
-The entity built here has **no component groups and no events** - it is four
+The entity built here has **no component groups and no events** - it is five
 components and nothing else. The state-chart model is the single most repeated
 claim about Bedrock entities and is very likely right, but this project has not
 exercised it. Verifying it is the main reason to author a real mob next.

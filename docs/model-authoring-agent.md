@@ -1,10 +1,19 @@
 # Model authoring for the agent
 
-Content for `.claude/skills/bedrock-geometry/SKILL.md`.
+**Planned skill:** `bedrock-geometry`
+**Status:** research notes only - **nothing in this file is verified by this
+project.** No custom `.geo.json` has been authored here; the template
+deliberately uses vanilla geometry (see `docs/decisions.md`), and
+`mct rendermodel` has never been run against project geometry. Every rule
+below is inherited from the research pass and the third-party sources
+surveyed in `docs/model-authoring-human.md` sections 5a/5b. Per the skill
+policy in `docs/decisions.md`, none of it becomes a skill until a real model
+has shipped end to end. Treat it as plausible guidance, not authority.
 
-Prior art: `Logeaddd/minecraft-ai-generate-bbmodel` (MIT, see section 5a)
-solves an adjacent problem for `.bbmodel`. Several rules below are borrowed
-from it and marked. Nothing exists that targets Bedrock `.geo.json` directly.
+Prior art: `Logeaddd/minecraft-ai-generate-bbmodel` (MIT, see
+`model-authoring-human.md` section 5a) solves an adjacent problem for
+`.bbmodel`. Several rules below are borrowed from it and marked. Nothing
+exists that targets Bedrock `.geo.json` directly.
 
 ---
 
@@ -82,7 +91,8 @@ atlas is a sign the pipeline has drifted away from Bedrock conventions.
 `pivot` is the rotation point. It is independent of cube geometry and belongs
 at the **joint**, not the cube center.
 
-From a working model:
+From a model examined during the research pass (not one authored or verified
+in this repo - no `.geo.json` exists here):
 
 ```json
 {

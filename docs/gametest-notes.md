@@ -11,7 +11,9 @@ loads them from the pack at runtime:
 ```
 packs/BP/
   scripts/
-    index.js                  # entry point; imports every test file
+    main.js                   # the manifest's script entry point
+                              #   ("entry": "scripts/main.js"); imports every
+                              #   test file
     gametests/
       ExampleTests.js
   structures/

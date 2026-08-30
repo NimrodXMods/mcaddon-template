@@ -176,6 +176,12 @@ are testable by hand, and the agent never touches a `.geo.json` directly.
 
 ## 5. Other tooling surveyed
 
+> **Caveat:** sections 5-5b are a third-party survey from the original
+> research pass (August 2026). Star counts, commit dates, version numbers,
+> tool counts, and pipeline descriptions were read from the projects' repos
+> and sites at that time, were never verified by this project, and will age.
+> Re-check anything here before relying on it.
+
 | Tool | Verdict |
 | --- | --- |
 | **Blockbench Plugin API** | Recommended automation surface. |
