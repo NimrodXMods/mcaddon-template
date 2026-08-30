@@ -19,13 +19,26 @@ could be guessed from the schema does not need writing down.
 - It scopes **both** `data/jsonte` and `data/json_templating_engine`. A
   `Skipping non-existent scope file` warning for whichever you do not have is
   benign - do not rename your data folder chasing it.
-- Filter order matters: jsonte must run before anything that scans the expanded
-  output (`texture_list`, `name_ninja`).
 - Expanded output exists only in the export target, never in `packs/`. A
   `packs/` diff shows what you wrote, not what the game loads.
 - jsonte needs Java 11+ as a standalone CLI, but the Regolith filter uses a
   bundled platform binary - so a Regolith-only workflow needs no Java on the
   machine or in CI.
+
+## Inherited from research - NOT verified here
+
+Carried over from the original AGENTS.md research pass. Plausible, widely
+repeated, and untested by this project. Do not promote to a skill on this
+basis - confirm it first, then move it up.
+
+- Filter order matters: jsonte must run before anything that scans the expanded
+  output (`texture_list`, `name_ninja`).
+
+Filters demonstrably run top-to-bottom, and `texture_list` and `name_ninja` were
+both observed consuming files that existed before them. But **no template has
+ever been expanded in this project**, so jsonte specifically has never produced
+output for a later filter to consume. The ordering rule is sound reasoning, not
+an observation.
 
 ## Open questions
 

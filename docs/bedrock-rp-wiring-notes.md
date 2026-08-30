@@ -15,14 +15,10 @@ highest-failure area in Bedrock add-ons.
 
 ## Confirmed lessons
 
-- It is a **graph, not a tree**: `client_entity` names geometry and texture
-  *keys*; the render controller resolves those keys via Molang. A break
-  anywhere renders an invisible or magenta entity **with no error message**.
 - You can borrow vanilla assets: `"geometry": {"default": "geometry.frog"}` and
   `"render_controllers": ["controller.render.default"]` give a working entity
   with no custom `.geo.json` at all. This is how an agent can produce a
   verifiable entity without Blockbench.
-- `materials` is required; `entity_alphatest` is the usual default.
 - Texture values are **paths** (`textures/<creator>/<game>/entity/foo`), unlike
   block and item textures which are **keys** into a `*_texture.json`. Mixing
   these up is easy.
@@ -35,6 +31,23 @@ highest-failure area in Bedrock add-ons.
 - After an RP change, `/reload` is **not** enough: it reloads functions and
   scripts only. Use `/reload all`, which reloads both packs and is effectively
   instant.
+
+## Inherited from research - NOT verified here
+
+Carried over from the original AGENTS.md research pass. Plausible, widely
+repeated, and untested by this project. Do not promote to a skill on this
+basis - confirm it first, then move it up.
+
+- It is a **graph, not a tree**: `client_entity` names geometry and texture
+  *keys*; the render controller resolves those keys via Molang. A break
+  anywhere renders an invisible or magenta entity **with no error message**.
+- `materials` is required; `entity_alphatest` is the usual default.
+
+The entity here wires up correctly and renders, so the graph *shape* is
+confirmed. The failure behaviour is not: nothing was deliberately broken, and
+no custom render controller was written - `controller.render.default` does the
+resolving. `materials` was always present, so "required" is assumed rather than
+tested.
 
 ## Open questions
 

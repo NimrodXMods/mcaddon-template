@@ -15,9 +15,6 @@ for a single entity.
 
 ## Confirmed lessons
 
-- Entities are **state charts, not objects**. Component groups are states,
-  events are the only transitions. A group no event adds is dead code, and
-  nothing warns you - not the engine, not `mct validate`.
 - A minimal working entity is very small: `identifier`, `is_spawnable`,
   `is_summonable`, plus `minecraft:health`, `collision_box`, `type_family`,
   `physics`. Start there and add.
@@ -35,8 +32,23 @@ for a single entity.
 - `format_version` on the BP entity (1.20.80 here) and the RP client entity
   (1.10.0) are **different numbering lines**. One value does not work for both
   files.
+
+## Inherited from research - NOT verified here
+
+Carried over from the original AGENTS.md research pass. Plausible, widely
+repeated, and untested by this project. Do not promote to a skill on this
+basis - confirm it first, then move it up.
+
+- Entities are **state charts, not objects**. Component groups are states,
+  events are the only transitions. A group no event adds is dead code, and
+  nothing warns you - not the engine, not `mct validate`.
 - A component predating the file's `format_version` is silently ignored. That
   is the quiet failure behind "I added the component and nothing happened".
+
+The entity built here has **no component groups and no events** - it is four
+components and nothing else. The state-chart model is the single most repeated
+claim about Bedrock entities and is very likely right, but this project has not
+exercised it. Verifying it is the main reason to author a real mob next.
 
 ## Open questions
 
