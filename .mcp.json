@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "minecraft-creator-tools": {
+      "command": "mct",
+      "args": ["mcp", "-i", "."]
+    }
+  }
+}
