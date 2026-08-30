@@ -15,6 +15,29 @@ highest-failure area in Bedrock add-ons.
 
 ## Confirmed lessons
 
+- **Do not borrow vanilla assets for a mob you intend to observe.** `stalker`
+  used `geometry.skeleton.v1.8` *and* `textures/entity/skeleton/skeleton`,
+  making it pixel-identical to a real skeleton. A natural-spawn playtest then
+  reported "no stalkers, just skeletons" - an observation that could not
+  distinguish the two, so it proved nothing either way. Borrowing vanilla
+  geometry is fine and useful; borrowing the vanilla **texture** destroys your
+  ability to test.
+
+  The fix costs one command. A 64x32 checkerboard matching the geometry's
+  declared `texturewidth`/`textureheight`:
+
+  ```bash
+  magick -size 8x4 pattern:gray50 -scale 800% -fuzz 20% \
+    -fill "#1E64C8" -opaque black -fill "#F5D000" -opaque white \
+    PNG32:packs/RP/textures/addontemplate/template/entity/stalker.png
+  ```
+
+  `pattern:gray50` is a 2x2 alternating tile, so an 8x4 canvas gives a clean
+  checkerboard, and `-scale` replicates pixels with no interpolation (unlike
+  `-resize`). Real entity textures belong in
+  `textures/<creator>/<gamename>/entity/`; `common/` is for throwaway
+  placeholders. Both pass CADDONREQ.
+
 - You can borrow vanilla assets: a vanilla `geometry` identifier plus
   `"render_controllers": ["controller.render.default"]` give a working entity
   with no custom `.geo.json` at all. This is how an agent can produce a

@@ -8,9 +8,18 @@ Per the skill policy in `docs/decisions.md`, this becomes
 things break. Failures and non-obvious details are the point; anything that
 could be guessed from the schema does not need writing down.
 
-`addontemplate:stalker` now has behaviours and a **playtest-confirmed** state
-machine (2026-08-30). It has **no spawn rules and no loot**, so the bar above
-is still not met - but the central claim this file existed to test is settled.
+**The content bar is now met** (2026-08-30). `addontemplate:stalker` has a
+three-state behaviour machine, spawn rules and a loot table, and all three are
+confirmed in game - it wanders, aggros on proximity, flees on damage, spawns
+naturally, and drops loot.
+
+**But do not write the skill yet.** The policy has two parts, and the second is
+unmet: notes convert once they *stop growing on the next example of the same
+thing*. This is one mob. These notes grew substantially while building it -
+two `format_version` failure modes, the CADDONREQ loot-table rule, the
+`pushable` split - and there is no evidence yet that a second mob would not
+grow them again. Build another entity first; if this file barely changes, it
+has converged.
 
 ## What the skill must cover
 
@@ -263,6 +272,46 @@ every vanilla example uses looks like it should break lookup, and does not.
 `spawn_rules/stalker.spawn_rules.json` passes clean. So the rule is per-folder,
 not global - do not assume, check.
 
+**Natural spawning confirmed in game 2026-08-30.** The rule as written -
+`population_control: "monster"`, surface + underground, brightness 0-7,
+difficulty easy+, `has_biome_tag: monster` wrapped in `all_of`, herd 1-2 -
+produces stalkers in a normal world once `domobspawning` is on. Weight was
+raised to 100 during diagnosis and has been returned to **40**; spawning was
+observed at 100, so 40 is inferred to work rather than measured.
+
+#### Check the world before debugging the file
+
+Natural spawning failed here for a long time, and **the spawn rule was never
+the problem**: the test world had `domobspawning = 0`. Nothing in the pack, the
+build, or `mct validate` can detect that - it is world state, not content.
+
+`level.dat` is readable from disk and settles it in seconds without guessing.
+Bedrock's `level.dat` is NBT with an 8-byte header; a byte-tag gamerule's value
+is the byte immediately after its name, so a crude search is enough:
+
+```python
+b = open('<world>/level.dat','rb').read()
+i = b.find(b'domobspawning'); print(b[i+len(b'domobspawning')])   # 0 = disabled
+```
+
+Worlds live under
+`.../Minecraft Bedrock/Users/<id>/games/com.mojang/minecraftWorlds/<world>/`,
+**not** under `Users/Shared/…` where the development packs go - that
+`minecraftWorlds` is empty. `levelname.txt` in each folder gives the display
+name. Note `level.dat` is written on save, so it can lag a gamerule changed
+mid-session.
+
+Before editing a spawn rule, rule out in this order: `domobspawning`,
+difficulty above peaceful, light level ≤ the `brightness_filter` max, distance
+**> 24 blocks** from the player, and the vanilla monster cap. Only then suspect
+the file.
+
+*Lesson recorded because it was learned the wrong way round:* three changes
+were made to the spawn rule - `all_of` wrapping, weight 40 → 100, and adding
+`minecraft:despawn` - while chasing what turned out to be a world setting. They
+were not the cause, and making them first means it is no longer known whether
+the original rule would have worked.
+
 ### Driving state transitions from data
 
 `minecraft:environment_sensor` takes a `triggers` list of
@@ -290,18 +339,6 @@ basis - confirm it first, then move it up.
   ran.
 
 ## Awaiting playtest
-
-- **Spawn rules.** Natural spawning has **not** worked yet. First attempt
-  (weight 40, bare single-test `biome_filter`, no `minecraft:despawn`) produced
-  nothing at night or in low light. Three things changed since, none yet
-  retested: `biome_filter` wrapped in `all_of` to match vanilla exactly, weight
-  raised to 100, and `minecraft:despawn` added to the entity (every vanilla
-  monster carries it, and a mob under `population_control: "monster"` that
-  never despawns holds its cap slot permanently).
-
-  Environmental confounds to rule out before blaming the file: mobs never spawn
-  within **24 blocks** of a player, difficulty must be above peaceful, and the
-  vanilla monster cap competes for slots.
 
 - **The upper bound on the `environment_sensor` cutoff is unestablished.** A
   second probe at 1.16.0 was built but its behaviour was never separately

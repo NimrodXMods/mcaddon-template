@@ -4,7 +4,7 @@
     "description": {
       "identifier": "addontemplate:stalker",
       "materials": { "default": "entity_alphatest" },
-      "textures": { "default": "textures/entity/skeleton/skeleton" },
+      "textures": { "default": "textures/addontemplate/template/entity/stalker" },
       "geometry": { "default": "geometry.skeleton.v1.8" },
       "render_controllers": ["controller.render.default"],
       "spawn_egg": { "base_color": "#7c3f3f", "overlay_color": "#4a2626" }
