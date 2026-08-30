@@ -178,6 +178,8 @@ Docs: <https://regolith-docs.readthedocs.io/>. The older
 regolith install texture_list      # generates texture_list.json
 regolith install name_ninja        # generates .lang entries from JSON
 regolith install bump_manifest     # auto-increments manifest versions
+                                   # WARNING: corrupts script module deps,
+                                   # see the gotcha table before using
 ```
 
 Filters not in the resolver repo install by full path:
@@ -600,6 +602,12 @@ are the source you edit. On `regolith run`, regolith copies them into
 result to the profile's export target — by default the `development_*_packs`
 folders under `com.mojang`. It never writes back into `packs/`.
 
+One exception, and it is the filter's doing rather than regolith's:
+`bump_manifest` deliberately edits `packs/BP/manifest.json` and its
+`packs/data/bump_manifest/version.json` state file in place, so the bumped
+version survives between builds. It is not used in this project - see the
+gotcha table.
+
 Verified empirically: with `texture_list` wired into the profile, a run left
 `packs/` byte-identical, and the generated `textures_list.json` appeared only
 in the export target.
@@ -852,7 +860,7 @@ Then edit `config.json` so `packs` points at the mct-generated folders:
           { "filter": "command_lang" },
           { "filter": "texture_list" },
           { "filter": "name_ninja" },
-          { "filter": "bump_manifest" }
+          { "filter": "bump_manifest" }   // see gotcha table - not used here
         ],
         "export": { "target": "local", "readOnly": false }
       }
@@ -878,7 +886,7 @@ Install filters:
 regolith install jsonte --profile=default
 regolith install texture_list --profile=default
 regolith install name_ninja --profile=default
-regolith install bump_manifest          # build profile only; do not add to default
+regolith install bump_manifest          # NOT USED - corrupts script module deps
 # regolith install command_lang --profile=default   # requires paid cmcc, see section 4
 ```
 
@@ -1205,6 +1213,7 @@ error message. This is the single highest-value thing to encode in a skill.
 | Visual — reference | `mct rendervanilla mob minecraft:creeper -o out.png` | comparison baseline |
 | Visual — structure | `mct renderstructure <file>.mcstructure` | build placement |
 | Runtime | GameTest via `mct exportworld` / `deploytestworld` | actual behavior |
+| Runtime - manual | load the pack, then `/reload all` after each change | the only check that catches a malformed component payload; `mct validate` reports zero errors for those |
 
 The render commands emit PNGs. A multimodal agent can inspect them. Treat that
 as the closest thing this ecosystem has to a visual regression test — it is the
@@ -1242,7 +1251,7 @@ target too.
 
 ```bash
 # from: my-addon/
-regolith run build          # profile with bump_manifest
+regolith run build          # local export; bump versions by hand, see gotcha table
 npx mct exportaddon -i . -o build
 ```
 
@@ -1267,6 +1276,9 @@ npx mct exportworld -i . -o build
 | Extension flags valid code | Blockception avoids experimental features by design. mct is the authority. |
 | Texture validation errors CADDONREQ102/104/108 | Cooperative Add-On rules: textures may not sit loose in common-named folders. Required layout is `textures/<creatorshortname>/<gamename>/blocks&#124;items&#124;entity/*.png` (one of those three), and `<creatorshortname>` may contain exactly **one** subfolder (plus optionally `common`). See the template under `packs/RP/textures/addontemplate/template/`. |
 | Generated `.lang` file is empty | `name_ninja` emits nothing unless a `name` field is present in the BP description or `auto_name` is enabled per type. It needs separate `entities`/`blocks`/`items`/`spawn_eggs` settings blocks - enabling three of the four silently omits the fourth. |
+| Item is **invisible** (not magenta) | The `minecraft:icon` component shape is wrong, so nothing resolved. Magenta means a texture path resolved but the file is missing; invisible means the component itself was rejected. `minecraft:icon` is either a bare string or `{"textures": {"default": "<key>"}}` - `textures` plural, `default` required, `additionalProperties: false`. `{"texture": "x"}` is silently invalid. |
+| Validation passes but content is broken in game | `mct validate` does **not** deep-validate component payloads against the schemas. It checks manifests, pack conventions and file structure. A malformed component shape reports zero errors. Read `../mcbe-schemas/behavior/<type>/<type>.json` before writing a component - this is what rule 4a exists for, and it is easy to skip. |
+| Pack changes do not appear after `/reload` | `/reload` reloads **functions and scripts only** - not entity/block/item definitions and not textures. Use `/reload all`, which reloads all behavior and resource packs. It is implemented as a quit-and-rejoin but is effectively instant and returns you to the same spot, so there is little reason to prefer plain `/reload`. Host player only on servers. |
 | Custom item aux IDs unstable | Known ecosystem limitation: item ID assignment depends on pack stack order at world load, which is non-deterministic and unknowable at build time. Do not build logic on aux IDs. |
 
 ## Bedrock Model Authoring: Blockbench Workflow + Agent Geometry Rules

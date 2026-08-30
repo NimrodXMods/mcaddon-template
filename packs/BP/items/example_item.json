@@ -3,10 +3,16 @@
   "minecraft:item": {
     "description": {
       "identifier": "addontemplate:example_item",
-      "menu_category": { "category": "items" }
+      "menu_category": {
+        "category": "items"
+      }
     },
     "components": {
-      "minecraft:icon": { "texture": "example_item" },
+      "minecraft:icon": {
+        "textures": {
+          "default": "example_item"
+        }
+      },
       "minecraft:max_stack_size": 64
     }
   }

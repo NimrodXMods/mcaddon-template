@@ -105,6 +105,43 @@
             }
           }
         ]
+      },
+      "build": {
+        "export": {
+          "build": "standard",
+          "readOnly": false,
+          "target": "local"
+        },
+        "filters": [
+          {
+            "filter": "jsonte"
+          },
+          {
+            "filter": "texture_list"
+          },
+          {
+            "filter": "name_ninja",
+            "settings": {
+              "languages": [
+                "en_US.lang"
+              ],
+              "overwrite": true,
+              "sort": true,
+              "entities": {
+                "auto_name": true
+              },
+              "blocks": {
+                "auto_name": true
+              },
+              "items": {
+                "auto_name": true
+              },
+              "spawn_eggs": {
+                "auto_name": true
+              }
+            }
+          }
+        ]
       }
     }
   }
