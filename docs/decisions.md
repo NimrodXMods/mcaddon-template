@@ -488,21 +488,40 @@ replacing the templating layer costs one skill rather than all of them.
   `@minecraft/server-gametest` dependency changes what the pack needs to load,
   so it is deliberate. See `docs/gametest-notes.md`.
 - **Whether the template ships a custom model.** Currently vanilla-only.
-- **Bringing existing files up to the `format_version` policy.** Not a question
-  of *whether* - the policy is decided and, with version-locked multiplayer,
-  there is no compatibility argument for holding back. Purely a question of
-  *when*. The files lag: `min_engine_version` is `1.26.40` while BP entities
-  declare `1.20.80` and block/item `1.21.40`, so anything added to those
-  formats since is silently unavailable - a failure now *confirmed*, not
-  theorised.
+- **Script module versions are stale and being silently promoted.** The BP
+  manifest declares `@minecraft/server` **2.0.0** and `@minecraft/server-ui`
+  **2.0.0**; at load the engine reports:
 
-  Bumping is not clerical. It **exposes components that were being dropped**,
-  which is a behaviour change to a mob that was just verified in game, so it
-  needs its own verify pass and playtest. Do it as an isolated change: bumping
-  while the spawn-rule question is still open would put two variables in flight
-  at once.
+  ```
+  [Scripting][verbose]-Plugin [AddOnTemplate] - promoted [@minecraft/server]
+      from [2.0.0] to [2.9.0] requested by [AddOnTemplate - 0.0.1]
+  [Scripting][verbose]-... promoted [@minecraft/server-ui] from [2.0.0] to [2.1.0]
+  ```
 
-  The numbering lines are independent - BP entity, RP client entity (`1.10.0`)
-  and spawn rules (`1.8.0`) each track their own. **Spawn rules are correct at
-  1.8.0**; that is what current vanilla still declares. This is not a
-  find-and-replace.
+  Same staleness class as the `format_version` lag, and the "latest stable"
+  policy says these should declare what they actually receive. Deliberately
+  **not** changed yet, for three reasons: today's `format_version` bump broke
+  both entities outright, so version bumps here have earned caution; it is
+  unconfirmed whether 2.9.0 is stable rather than beta, and the policy forbids
+  beta; and `mct exportaddon` is known to rewrite `module_name` dependency
+  versions as arrays (`[2,9,0]`) where a semver **string** is correct - see the
+  gotcha table - so this file is already fragile.
+
+  Low urgency: `scripts/main.js` uses only `world.sendMessage` and
+  `system.run`, which are stable across 2.x, so the promotion changes nothing
+  functionally today. It matters when the script starts using newer APIs.
+
+- **Whether the bumped entities still *behave*.** The bump (BP entities
+  `1.20.80` → `1.26.40`, item → `1.26.30`, block → `1.21.110`) initially
+  **broke both entities outright** - `minecraft:pushable` does not exist at
+  1.26.40 and the whole entity failed to parse. Fixed by splitting it into
+  `minecraft:pushable_by_entity` / `pushable_by_block`, and
+  `/summon addontemplate:stalker` now works, so the entities **load**.
+
+  Not yet confirmed: that wandering, proximity aggro, flee-on-damage and loot
+  all still work at 1.26.40. Loading is not behaving, and the schema changed
+  under every component, not just `pushable`.
+
+  Note the bump was applied while the spawn-rule question was still open, so if
+  natural spawning starts working now, the cause is ambiguous between the two
+  changes.

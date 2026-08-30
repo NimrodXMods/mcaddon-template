@@ -15,6 +15,60 @@ without a clean run.
 
 ## Confirmed lessons
 
+### The gate does not cover `format_version`, and the Content Log does
+
+`mct validate` reported **0 errors** on an entity that could not load in game
+at all, and on another whose component was silently dropped. Both were
+`format_version` mismatches (see `docs/bedrock-entity-notes.md`). A clean
+`verify.sh` therefore says nothing about whether components match the declared
+schema, in either direction.
+
+The only place that failure surfaces is Minecraft's **Content Log**:
+
+```
+C:/Users/<user>/AppData/Roaming/Minecraft Bedrock/logs/ContentLog<date>_1.txt
+```
+
+Reading it, in the order that actually works:
+
+- A log file spans a whole **game session** and is appended to across
+  `/reload all`, so it accumulates. One here reached **15 MB / 138k warnings**
+  from a single already-fixed item. **Restart Minecraft to roll a fresh log**
+  before drawing conclusions - otherwise you are reading history.
+- Slice from the reload marker forward rather than grepping by timestamp:
+  `awk '/<HH:MM:SS>\[Scripting\]\[verbose\]-Plugin Discovered/{f=1} f' <log>`.
+- Then filter the noise: `grep -viE "\[(inform|verbose)\]"`. What remains is
+  real. `[Sound][inform]-No sound found for block type 'normal'` is constant
+  engine chatter, not your content.
+- `[Actor][error]-... failed to load from JSON` is the line that matters most;
+  it means the entity does not exist in game at all.
+
+**The Content Log GUI and the file are not the same thing.** The GUI is a
+session-long **accumulator that never clears**, and it **strips timestamps**.
+Read it after fixing something mid-session and it will still show the failure
+you just fixed, with nothing to indicate the entry is stale. Observed here: a
+`minecraft:pushable` error from a world load at ~11:40 was still displayed
+after the fix was deployed at 11:42 and reloaded at 11:43. The **file** keeps
+timestamps (`11:35:04[Log][error]-…`), which is the only way to date an entry.
+
+Two further traps in the file:
+
+- Writes are **buffered**. A quiet session can leave the file at **0 bytes**
+  while the GUI shows content - confirmed with `stat`, `wc -c`, a forced copy
+  and PowerShell's `Get-Item.Length` all reporting 0. The old log's last entry
+  was stamped 11:35:04 while its mtime was 11:38:32, a ~3.5 minute lag. **An
+  empty log proves nothing**; quit Minecraft to flush the handle.
+- Only the **first** parse error per entity is reported. Fixing it can uncover
+  a second. After a schema-level change, re-check rather than assuming one fix
+  was the whole problem.
+
+The fastest confirmation that an entity actually loads is not the log at all -
+it is `/summon <identifier>`. That proves it parsed; it does **not** prove its
+behaviours survived.
+
+**After any `format_version` change, read the Content Log before believing the
+change worked.**
+
 - The report is `reports/<project>.mcr.json`, named from the **project folder**,
   not `reports/info.json`. Glob it; do not hardcode.
 - Errors live in `info.errorCount` and as items with `"iTp": 3`. There is no

@@ -93,17 +93,28 @@ summoned entity plausibly not firing the same event as a naturally spawned one
 would have left the mob with no state at all and no sensor to rescue it. It is
 not a problem.
 
-### `format_version` silently drops newer components - confirmed
+### `format_version` has TWO failure modes, and mct catches neither
 
-**Confirmed in game 2026-08-30**, and this is the single most useful gotcha in
-this file. A component **newer than the file's declared `format_version`** is
-silently ignored: no error, no warning, and `mct validate` reports **0
-errors**. It is the quiet failure behind "I added the component and nothing
-happened".
+**Both confirmed in game 2026-08-30.** This is the most important section in
+this file. `format_version` does not merely gate features - it selects a
+**schema**, and a component can be wrong in either direction:
 
-Note the direction. An earlier draft of this file had it backwards, saying "a
-component *predating* the file's `format_version`". The file's version being
-older than the component is what breaks; the component being old is fine.
+| Mismatch | Symptom | Loud? |
+| --- | --- | --- |
+| Component **newer** than the declared version | that component is **silently dropped**; the rest of the entity works | no - nothing, anywhere |
+| Component **removed** by the declared version | the **entire entity fails to load** | yes, but only in the in-game Content Log |
+
+`mct validate` reported **0 errors** for both. It passed a file whose entity
+could not load at all. Treat that as the hard limit of the gate: it does not
+evaluate components against the declared `format_version` in either direction.
+
+**Correction worth recording.** An earlier draft of this file said "a component
+*predating* the file's `format_version` is silently ignored". I judged that
+garbled and rewrote it to the opposite direction, having confirmed only the
+first mode. The second mode then proved the original wording was pointing at
+something real - a component older than the declared version *does* break, just
+loudly rather than silently. Both directions matter; neither statement alone
+was complete.
 
 The evidence is a controlled A/B. Three entities were built from the **same
 three jsonte modules** with the same `$scope`, so their `component_groups` and
@@ -133,19 +144,61 @@ one-off application glitch. The component is being dropped when the file is
 parsed. Component groups, events, behaviours and the other sensor are all
 unaffected; the drop is **per-component**, not whole-file.
 
+#### Mode two: a removed component kills the whole entity
+
+Bumping this project from 1.20.80 to 1.26.40 broke **both** entities outright:
+
+```
+addontemplate:stalker | minecraft:entity |
+  -> components -> minecraft:pushable: this component was found in the input,
+     but is not present in the Schema
+ERROR: Entity 'addontemplate:stalker' failed to load from JSON: parse errors
+```
+
+`minecraft:pushable` was **split** somewhere between 1.26.0 and 1.26.40.
+Vanilla files at 1.26.0 still carry it; files at 1.26.40 use a presence-based
+pair instead - empty objects, no fields:
+
+| 1.20.80 → 1.26.0 | 1.26.40 |
+| --- | --- |
+| `"minecraft:pushable": {"is_pushable": true, "is_pushable_by_piston": true}` | `"minecraft:pushable_by_entity": {}` + `"minecraft:pushable_by_block": {}` |
+
+(`pushable_by_block` is the piston case.)
+
+This is why **bumping `format_version` is a migration, not a clerical edit.**
+The upgrade does not just unlock new components - it can *remove* ones you
+depend on, and the failure is total rather than partial. The only reliable way
+to find out is the in-game Content Log; nothing in the build pipeline reports
+it.
+
 Practical consequences:
 
 - A mob that is "mostly working but one thing does nothing" is a
   `format_version` suspect before it is a logic suspect.
-- The verify gate cannot catch this. `mct validate` passed clean on a file with
-  a dead component, which is a concrete limit of the gate worth remembering.
+- A mob that **does not appear at all** after a version bump is a removed
+  component, not a broken identifier. Read the Content Log.
+- The verify gate cannot catch either case. `mct validate` passed clean on a
+  file with a dead component *and* on a file that failed to load - a concrete
+  limit of the gate worth remembering.
+- **After any `format_version` change, check the Content Log before believing
+  the change worked.** A clean `verify.sh` proves nothing here.
 - `minecraft:environment_sensor` specifically requires something newer than
   1.8.0. The upper bound is not established here - see Awaiting playtest.
-- Vanilla entities in `bedrock-samples` currently declare **1.26.x**, while
-  this project's entities declare 1.20.80. Anything added since 1.20.80 is
-  silently unavailable here and would fail exactly this way. The
-  `format_version` policy is still listed as undecided in `docs/decisions.md`;
-  this is the argument for deciding it.
+- **Each content type has its own numbering line, and "latest" differs per
+  line.** Established from `bedrock-samples` and the Creator docs on
+  2026-08-30:
+
+  | File | Newest observed | Source |
+  | --- | --- | --- |
+  | BP entity | **1.26.40** | vanilla entities |
+  | BP item | **1.26.30** | vanilla items (`apple.json` et al.) |
+  | BP block | **1.21.110** | Creator docs - vanilla ships no BP block JSON |
+  | RP client entity | 1.10.0 still dominant (94 files) vs 1.26.0 (7) | vanilla |
+  | Spawn rules | **1.8.0** | vanilla - this line has not moved |
+
+  Bumping is therefore never a find-and-replace. The project's files were moved
+  to these values on 2026-08-30; the block figure rests on documentation rather
+  than a vanilla sample, so it is the least certain of the three.
 
 ### Three states, and what the third one proved
 

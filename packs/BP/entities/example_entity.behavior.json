@@ -1,5 +1,5 @@
 {
-  "format_version": "1.20.80",
+  "format_version": "1.26.40",
   "minecraft:entity": {
     "description": {
       "identifier": "addontemplate:example_entity",
@@ -11,7 +11,8 @@
       "minecraft:collision_box": { "height": 1, "width": 1 },
       "minecraft:type_family": { "family": ["addontemplate", "inanimate"] },
       "minecraft:physics": {},
-      "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true }
+      "minecraft:pushable_by_entity": {},
+      "minecraft:pushable_by_block": {}
     }
   }
 }

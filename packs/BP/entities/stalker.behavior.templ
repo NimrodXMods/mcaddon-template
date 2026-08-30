@@ -17,7 +17,7 @@
     "flee_seconds": 5
   },
   "$template": {
-    "format_version": "1.20.80",
+    "format_version": "1.26.40",
     "minecraft:entity": {
       "description": {
         "identifier": "addontemplate:stalker",
@@ -41,7 +41,13 @@
         // slot permanently. Side effect while testing: a summoned stalker can
         // now vanish when you walk away.
         "minecraft:despawn": { "despawn_from_distance": {} },
-        "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true },
+        // NOT minecraft:pushable - that was split at some point between
+        // format_version 1.26.0 and 1.26.40, and using it at 1.26.40 makes the
+        // WHOLE ENTITY fail to load. The new pair is presence-based: an empty
+        // object enables it, there are no is_pushable / is_pushable_by_piston
+        // fields. pushable_by_block is the piston case.
+        "minecraft:pushable_by_entity": {},
+        "minecraft:pushable_by_block": {},
         "minecraft:movement.basic": {},
         "minecraft:navigation.walk": {
           "can_path_over_water": false,
