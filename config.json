@@ -140,6 +140,9 @@
                 "auto_name": true
               }
             }
+          },
+          {
+            "filter": "bump_manifest"
           }
         ]
       }

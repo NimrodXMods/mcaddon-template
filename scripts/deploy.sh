@@ -3,8 +3,7 @@
 # Package a release. Human-run: agents are denied `mct deploy` in
 # .claude/settings.json.
 #
-# This does NOT bump manifest versions. bump_manifest corrupts script module
-# dependencies (see AGENTS.md gotcha table), so versions are bumped by hand.
+# The build profile runs bump_manifest, so manifest versions increment here.
 #
 # This does NOT install into com.mojang. `regolith run` already does that on
 # every verify via the default profile's "development" export target. This
@@ -24,11 +23,47 @@ regolith run build
 
 echo
 echo "==> mct exportaddon"
-# mct 0.17.7 subcommands frequently write their output and then never exit
-# (observed on create, exportaddon). Cap it and judge by the artifact, not
-# by the exit status. See AGENTS.md section 3b.
-timeout 180 mct exportaddon -i . -o build || true
+# Bounded for the same reason as verify.sh: mct resolves script module
+# dependencies against the npm registry, and a half-open network stalls it
+# for minutes. --offline is safe here - it produces a byte-identical archive.
+MCT_TIMEOUT="${MCT_TIMEOUT:-60}"
+
+# mct exportaddon REWRITES the source manifests as a side effect: it resolves
+# the latest registry version of each script module dependency and writes it
+# back as an array ([2,9,0]) where a semver string ("2.0.0") is correct. That
+# corrupts packs/BP/manifest.json on every run, so snapshot and restore.
+MANIFESTS="packs/BP/manifest.json packs/RP/manifest.json"
+SNAP="$(mktemp -d)"
+for m in $MANIFESTS; do cp "$m" "$SNAP/$(echo "$m" | tr '/' '_')"; done
+
+set +e
+timeout "$MCT_TIMEOUT" mct exportaddon -i . -o build --format mcaddon --offline
+EXPORT_EXIT=$?
+set -e
+
+for m in $MANIFESTS; do
+  snap="$SNAP/$(echo "$m" | tr '/' '_')"
+  if ! cmp -s "$snap" "$m"; then
+    echo "  note: restoring $m (mct exportaddon rewrote it)"
+    cp "$snap" "$m"
+  fi
+done
+rm -rf "$SNAP"
+
+if [ "$EXPORT_EXIT" = "124" ]; then
+  echo
+  echo "FAIL: mct exportaddon exceeded ${MCT_TIMEOUT}s and was killed."
+  echo "Usually a network stall on registry.npmjs.org, not a project problem."
+  echo "Raise the budget with MCT_TIMEOUT=<seconds> if the project is large."
+  exit 1
+fi
 
 echo
 echo "==> artifacts"
-find build -maxdepth 1 -name '*.mcaddon' -o -maxdepth 1 -name '*.mcpack' | sed 's/^/  /'
+ARTIFACTS="$(find build -maxdepth 1 \( -name '*.mcaddon' -o -name '*.mcpack' \) 2>/dev/null)"
+if [ -z "$ARTIFACTS" ]; then
+  echo "FAIL: exportaddon exited $EXPORT_EXIT but produced no .mcaddon/.mcpack."
+  echo "Nothing was packaged. Do not treat this as a successful release."
+  exit 1
+fi
+echo "$ARTIFACTS" | sed 's/^/  /'

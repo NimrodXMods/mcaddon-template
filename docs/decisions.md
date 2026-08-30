@@ -161,6 +161,38 @@ bump versions by hand at release time.
 
 ---
 
+## mct calls are wrapped in `timeout`
+
+**Decided, after losing an afternoon to it.** `mct create` and `mct exportaddon`
+appeared to hang indefinitely - reproduced across 0.17.7 and 0.17.8, two drives,
+`--offline`, a fresh dependency tree, and three invocation methods (global shim,
+direct `node`, `npx`). All of that pointed at an mct bug.
+
+It was the network. mct resolves script module dependencies
+(`@minecraft/server`, `@minecraft/server-ui`) against registry.npmjs.org. A
+router fault was leaving connections half-open - reachable but never completing -
+so mct stalled for minutes instead of failing. `--verbose` eventually reveals it:
+
+```
+Could not load registry for '@minecraft/server': Error: read ECONNRESET
+```
+
+`--offline` does **not** suppress these lookups, despite the flag name.
+
+So: `scripts/verify.sh` and `scripts/deploy.sh` wrap every mct call in `timeout`
+(60s default, `MCT_TIMEOUT` to override) and fail with a message naming the
+likely cause. `deploy.sh` additionally fails when no `.mcaddon` is produced,
+rather than exiting 0 having packaged nothing.
+
+npm's own `fetch-retry-*` settings do not help here - mct has its own registry
+client and does not read npm config.
+
+**Lesson worth keeping:** a stall that survives version, drive, install and
+invocation changes is more likely environmental than a tool bug. Check the
+network before concluding the tool is broken.
+
+---
+
 ## Not yet decided
 
 - **Whether to enable Beta APIs.** Required for GameTest. Adding a

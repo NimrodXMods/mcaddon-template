@@ -28,10 +28,14 @@ whatever content currently lives in `packs/`.
 | --- | --- |
 | Toolchain + harness setup (0-10) | Prerequisites, mct, Regolith, MCDevKit filters, VS Code, Blockbench, MCP wiring, permissions, install order |
 | Repo structure and bootstrap (1-6) | The source/output invariant, directory layout, exact bootstrap commands, the verify gate, CI, the agent contract, and a table of silent failure modes |
-| Model authoring | Blockbench workflow for humans, then the geometry rules an agent must follow when drafting `.geo.json` skeletons |
 
-The model-authoring part is split deliberately: Part 1 is human workflow
-context, Part 2 is the ruleset destined for a `bedrock-geometry` skill.
+Model authoring lives outside this file:
+
+| Document | Audience |
+| --- | --- |
+| `docs/model-authoring-human.md` | Blockbench workflow, UV modes, tooling survey |
+| `docs/model-authoring-agent.md` | Geometry rules for drafting `.geo.json` - destined for a `bedrock-geometry` skill |
+| `docs/decisions.md` | Why the project is shaped as it is, with evidence |
 
 ## Status and provenance
 
@@ -41,14 +45,14 @@ sounded reasonable turned out to be wrong in ways that would have cost real
 debugging time. Where a section records a defect or a surprising behaviour, it
 was reproduced on this machine, not inferred.
 
-Known-verified: the Regolith source/output direction, the `verify.sh` gate
-(proven to fail on a broken project and pass on a clean one), the
-`mct fix randomizealluids` module-UUID gap, the `mct create` hang, and the
-`cmcc` licensing requirement.
+Known-verified on this machine: the Regolith source/output direction, the
+`verify.sh` gate (proven to fail on a broken project and pass on a clean one),
+the `mct fix randomizealluids` module-UUID gap, `mct exportaddon` rewriting
+source manifests, the `cmcc` licensing requirement, the Cooperative Add-On
+texture layout, and the whole template rendering correctly in game.
 
-Still carrying unverified research: the model-authoring survey sections (5a,
-5b) and parts of the tooling commentary. Treat specific version numbers and
-third-party claims there as of-their-time, not as current fact.
+Treat version numbers and third-party claims in the tooling commentary as
+of-their-time rather than current fact.
 
 **When you find something here that is wrong, fix it in place** rather than
 working around it. Delete sections that stop earning their space. The intent
@@ -178,8 +182,6 @@ Docs: <https://regolith-docs.readthedocs.io/>. The older
 regolith install texture_list      # generates texture_list.json
 regolith install name_ninja        # generates .lang entries from JSON
 regolith install bump_manifest     # auto-increments manifest versions
-                                   # WARNING: corrupts script module deps,
-                                   # see the gotcha table before using
 ```
 
 Filters not in the resolver repo install by full path:
@@ -237,36 +239,16 @@ fails and takes the whole profile down:
 
 `cmcc` is **not open source**. The MCDevKit GitHub org publishes only
 `cmcc-docs`; there is no compiler repo and no GitHub release to download.
-Per the official getting-started guide it is distributed through a client
-panel and requires an active paid subscription:
+It is distributed through the client panel at <https://mcdevkit.com>, needs an
+active subscription, must be put on PATH by hand, and is then activated with
+`cmcc activate <license key>`. See the MCDevKit getting-started guide.
 
-> Download CMCC from Downloads page in client panel
-
-> ...confirm that it's working by entering `cmcc` and hitting enter
-
-> ...type `cmcc activate <license key>`
-
-Install procedure (Windows), from that guide:
-
-1. Sign in at <https://mcdevkit.com> and download CMCC from the client panel's
-   Downloads page. This needs an active subscription.
-2. "Move it to a folder, where it won't be accidentally removed or moved
-   somewhere else."
-3. Add that folder to PATH: Start menu -> *Edit the system environment
-   variables* -> **Environment variables** -> select **Path** -> **Edit** ->
-   **Add** the folder -> OK out of every window.
-4. Open a new terminal and run `cmcc` to confirm it resolves.
-5. Activate with `cmcc activate <license key>`.
-
-**Decision for this project: CommandLang is not used.** `command_lang` stays
-in `filterDefinitions` (harmless, and keeps the option open) but is deliberately
-absent from every profile. Do not add it back without first installing and
-activating `cmcc`; doing so breaks `regolith run` and therefore every build.
-
-**Until `cmcc` is installed and activated, leave `command_lang` out of your
-profile.** It is not needed unless you are actually authoring `.mcc` sources —
-`packs/data/command_lang/main.mcc` is filter data seeded from the cache, not
-authored source, and does not require the filter.
+**Decision for this project: CommandLang is not used.** `command_lang` stays in
+`filterDefinitions` (harmless, keeps the option open) but is absent from every
+profile. Do not add it back before installing and activating `cmcc` - it breaks
+`regolith run`, and therefore every build. It is only needed if you author
+`.mcc` sources; `packs/data/command_lang/main.mcc` is filter data seeded from
+the cache, not authored source.
 
 Standalone jsonte CLI is also useful for the agent to test expansion in
 isolation: `jsonte eval <expr>` prints a result to console without a full
@@ -274,32 +256,11 @@ compile.
 
 ---
 
-## 5. VS Code (human editor only)
-
-Install **Blockception's Minecraft Bedrock Development** from the marketplace.
-
-Note: the old `VSCode-Bedrock-Development-Extension` repo is archived. Active
-development is at `Blockception/minecraft-bedrock-language-server`, a monorepo
-containing the language server, diagnostics, and project utilities. It provides
-`.mcfunction`, `.json`, `.lang`, and Molang support.
-
-Design caveat to be aware of: Blockception deliberately avoids
-experimental/beta/undocumented features unless vanilla files are seen using
-them. If you work with experimental toggles, expect false negatives from its
-diagnostics. mct validate is your authority, not the extension.
-
 ### JSON schemas
 
 ```bash
 git clone https://github.com/Blockception/Minecraft-bedrock-json-schemas.git ../mcbe-schemas
 ```
-
-**The schemas repo does not ship a `vscode-settings.json`** despite what
-earlier drafts of this document said - checked against a current clone. Write
-the `json.schemas` mappings yourself, pointing `fileMatch` globs at
-`packs/BP/**` and `packs/RP/**` and `url` at the relevant schema file. See this
-repo's `.vscode/settings.json` for a worked set of 27 mappings covering both
-packs, `manifest.json`, and `*.geo.json`.
 
 Schema filenames are not always what you would guess - for example
 `behavior/animation_controllers/animation_controller.json` (singular) but
@@ -311,41 +272,6 @@ Keep the clone on disk regardless of editor: the **agent** should read raw
 schema files rather than rely on training-data recall of component names,
 which drift every release.
 
----
-
-## 6. Blockbench
-
-Install from <https://blockbench.net>. Human-only tool for `.geo.json` geometry
-and UV work. The agent's only interaction with models is reading them and
-calling `mct rendermodel` to produce a PNG it can inspect.
-
-Optional: Snowstorm (particles) — bridge. can hand off to it directly.
-
----
-
-## 7. bridge. (optional, as an inspector)
-
-Web app: <https://editor.bridge-core.app/> — native builds also published for
-Windows/macOS/Linux.
-
-Current state: v3.0.0 is a full rewrite; some things are missing for now
-(model previews among them) and bugs are still shaking out. v2 (v2.7.x) is the
-mature line. Both ship the Dash compiler, which replaced bridge.'s old
-internal compiler as of v2.2.0.
-
-**Do not make this the agent's workbench.** No terminal, no MCP, no file-level
-agent access. Its core value — a tree editor that stops humans making
-structure mistakes, plus completions and validations for all Minecraft JSON —
-is aimed at manual authoring. Keep it installed to eyeball agent output in
-tree view and to open particles in Snowstorm.
-
-Interop note: Regolith follows the Project Config Standard, the shared
-`config.json` format used by programs that interact with Minecraft projects
-including bridge., adding its own `regolith` namespace on top. So the three
-tools compose rather than conflict.
-
----
-
 ## 8. Claude Code harness config
 
 ### 8a. MCP server
@@ -353,66 +279,11 @@ tools compose rather than conflict.
 `mct mcp` is plain stdio. It is not VS Code specific — the upstream docs just
 use VS Code as the example client.
 
-Project-scoped, `.mcp.json` at repo root:
-
-```json
-{
-  "mcpServers": {
-    "minecraft-creator-tools": {
-      "command": "mct",
-      "args": ["mcp", "-i", "."]
-    }
-  }
-}
-```
-
-Verify inside Claude Code with `/mcp`.
-
-Honest assessment: with a shell, this MCP server is a convenience, not a
-dependency. The verify loop is `regolith run && mct validate addon`, which the
-Bash tool already covers. Add the MCP server for structured project
-introspection; don't architect around it.
-
-For reference, the VS Code equivalent (`.vscode/mcp.json`) if you ever want it
-there too:
-
-```json
-{
-  "servers": {
-    "minecraft-creator-tools": {
-      "type": "stdio",
-      "command": "mct",
-      "args": ["mcp", "-i", "${workspaceFolder}"]
-    }
-  }
-}
-```
+Project-scoped, `.mcp.json` at repo root.
 
 ### 8b. Existing skills/plugins — what actually exists
 
-I searched this specifically. Findings:
-
-| Thing | Verdict |
-| ------- | --------- |
-| `mrquentin/minecraft-skills` | Only partially relevant. Bundle is Forge/NeoForge/GregTech focused, **but** it includes a `minecraft-gametest` skill covering the Bedrock GameTest framework. Worth installing for that one skill. |
-| `chouzz/minecraft-mod-dev` | Java modding (NeoForge/Fabric). Not applicable. |
-| `minecraft-plugin-development` (awesome-copilot) | Paper/Spigot/Bukkit. Its own description explicitly lists Bedrock add-ons as out of scope. |
-| `Jahrome907/minecraft-agent-skills` | Mixed bundle, Java-leaning. Evaluate skeptically. |
-| `setup-bedrock-server` (skills.rest) | BDS deployment, not add-on authoring. Useful only if you run a dedicated server. |
-| Add-on-authoring MCP servers | **None exist** besides `mct mcp`. Everything in the MCP registries under "Minecraft" is in-game WebSocket bot control (player movement, block placement). Irrelevant. Stop looking. |
-
-Install the GameTest one:
-
-```
-/plugin marketplace add mrquentin/minecraft-skills
-/plugin install minecraft-skills@mrquentin
-```
-
-Or scope it manually by copying just the `minecraft-gametest` skill folder to
-`.claude/skills/`.
-
-**Conclusion: there is no meaningful prior art for Bedrock add-on authoring.
-You are writing your own skills.** This is the real work of the harness.
+The `minecraft-gametest` skill is installed in`.claude/skills/`.
 
 ### 8c. Skills you write
 
@@ -436,84 +307,9 @@ assume a skill is available because it is listed here.
 
 ### 8d. Permissions
 
-`.claude/settings.json`:
-
-This is the file currently in the repo:
-
-```json
-{
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "permissions": {
-    "allow": [
-      "Bash(regolith run:*)",
-      "Bash(regolith install:*)",
-      "Bash(regolith config:*)",
-      "Bash(regolith --version)",
-
-      "Bash(mct validate:*)",
-      "Bash(npx mct validate:*)",
-      "Bash(mct info:*)",
-      "Bash(npx mct info:*)",
-      "Bash(mct version:*)",
-      "Bash(mct search:*)",
-      "Bash(mct aggregatereports:*)",
-      "Bash(mct fix:*)",
-      "Bash(npx mct fix:*)",
-      "Bash(mct rendermodel:*)",
-      "Bash(mct rendervanilla:*)",
-      "Bash(mct renderstructure:*)",
-      "Bash(npx mct rendermodel:*)",
-      "Bash(npx mct rendervanilla:*)",
-      "Bash(npx mct renderstructure:*)",
-
-      "Bash(./scripts/verify.sh)",
-
-      "Bash(git status:*)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)",
-      "Bash(git show:*)",
-      "Bash(git ls-files:*)",
-
-      "Bash(node --version)",
-      "Bash(npm --version)",
-      "Bash(java -version)"
-    ],
-    "deny": [
-      "Bash(mct deploy:*)",
-      "Bash(npx mct deploy:*)",
-      "Bash(mct deploytestworld:*)",
-      "Bash(npx mct deploytestworld:*)",
-
-      "Edit(.regolith/**)",
-      "Write(.regolith/**)",
-      "Edit(out/**)",
-      "Write(out/**)",
-      "Edit(build/**)",
-      "Write(build/**)",
-      "Edit(reports/**)",
-      "Write(reports/**)",
-
-
-      "Edit(**/*.geo.json)",
-      "Write(**/*.geo.json)",
-      "Edit(**/*.bbmodel)",
-      "Write(**/*.bbmodel)",
-      "Edit(**/*.png)",
-      "Write(**/*.png)"
-    ],
-    "ask": [
-      "Bash(git push:*)",
-      "Bash(git commit:*)",
-      "Bash(mct exportaddon:*)",
-      "Bash(mct exportworld:*)",
-      "Bash(mct ensureworld:*)",
-      "Bash(mct create:*)",
-      "Bash(mct set:*)",
-      "Bash(mct add:*)"
-    ]
-  }
-}
-```
+See `.claude/settings.json`. The verify loop is allowed unprompted; commands
+that mutate project identity or history (`git commit`/`push`, `mct create`/
+`set`/`add`, the exports) are in `ask`; the rest is denied.
 
 **Do not add `Edit(packs/**)` / `Write(packs/**)` to the deny list.** Earlier
 drafts of this document did, on the false premise that `packs/` is compiler
@@ -538,33 +334,19 @@ but with a confirmation step.
 
 ---
 
-## 9. Smoke test before writing any agent config
+## 9. Smoke test
 
-Prove the toolchain end to end by hand first. If this doesn't work, no amount
-of prompt engineering will save you.
+Prove the toolchain by hand before trusting any agent loop. In this repo that
+is just `./scripts/verify.sh` - it runs regolith and mct end to end and exits
+nonzero on anything wrong.
 
-```bash
-npx mct create                                   # interactive scaffold
-cd <project>
-npx mct info -i .
-npx mct validate addon -i . -v
-npx mct deploy mcuwp -i . --test-world --launch
-```
-
-Then prove the compiler layer:
-
-```bash
-regolith init
-regolith install texture_list
-# add texture_list to the default profile in config.json
-regolith run
-```
-
-Only after both pass should you write `CLAUDE.md` and skills.
+For a fresh machine, prove each layer separately: `mct --version`,
+`mct eula --status`, `regolith --version`, then `regolith run` and
+`mct validate addon -i . -v` on a scaffolded project.
 
 ---
 
-## 10. Install order summary
+## 10. Toolchain install order summary
 
 1. Node 22+, npm 10+, Java 11+, Go, git
 2. `npm i -g @minecraft/creator-tools` → `npx mct eula`
@@ -573,15 +355,11 @@ Only after both pass should you write `CLAUDE.md` and skills.
 5. VS Code + Blockception extension; clone schemas repo
 6. Blockbench
 7. bridge. (optional, inspector role)
-8. Manual smoke test (section 9)
+8. Manual smoke test
 9. `.mcp.json`, `.claude/settings.json`, `CLAUDE.md`, skills
 10. `mrquentin/minecraft-skills` for the GameTest skill only
 
 # Bedrock Add-On Repo Structure and Bootstrap
-
-Companion to `01-bedrock-toolchain-setup.md`. This file describes the git repo
-layout, the exact commands to bootstrap it, and the context an agent needs to
-work in it safely.
 
 ---
 
@@ -602,11 +380,13 @@ are the source you edit. On `regolith run`, regolith copies them into
 result to the profile's export target — by default the `development_*_packs`
 folders under `com.mojang`. It never writes back into `packs/`.
 
-One exception, and it is the filter's doing rather than regolith's:
-`bump_manifest` deliberately edits `packs/BP/manifest.json` and its
-`packs/data/bump_manifest/version.json` state file in place, so the bumped
-version survives between builds. It is not used in this project - see the
-gotcha table.
+Two exceptions, neither of them regolith's doing:
+
+- `bump_manifest` updates its `packs/data/bump_manifest/version.json` state
+  file so versions persist between builds. Expected.
+- `mct exportaddon` rewrites script module dependency versions in
+  `packs/BP/manifest.json`, and gets the format wrong. See the gotcha table;
+  `scripts/deploy.sh` guards against it.
 
 Verified empirically: with `texture_list` wired into the profile, a run left
 `packs/` byte-identical, and the generated `textures_list.json` appeared only
@@ -699,15 +479,8 @@ the reason to move the clone out is report noise, not a false failure.
 
 ### `.gitignore`
 
-```
-/build
-/reports
-/out
-/.regolith
-node_modules/
-*.mcaddon
-*.mcworld
-```
+Derived output only: `/build`, `/reports`, `/out`, `/.regolith`,
+`node_modules/`, `*.mcaddon`, `*.mcworld`. See the file.
 
 Keep `packs/` **tracked** — it is your source, so this is ordinary version
 control rather than a special case.
@@ -734,11 +507,6 @@ git init
 
 ### 3b. Scaffold with mct
 
-```bash
-# from: my-addon/
-npx mct create
-```
-
 Non-interactive form, which is what an agent must use (the Bash tool cannot
 answer prompts):
 
@@ -748,20 +516,27 @@ mct create -y -o . <name> <template> <creator> "<description>"
 mct create -y -o ./myproj                    # all defaults
 ```
 
-**Known defect in mct 0.17.7 - `create` never exits.** It writes the template
-files within a few seconds and then hangs forever; `--offline` makes no
-difference, so it is not a network stall. Run it under a timeout and treat file
-presence, not exit status, as the success signal:
+**`create` can appear to hang for many minutes.** That is a network symptom,
+not an mct defect: mct resolves script module dependencies
+(`@minecraft/server`, `@minecraft/server-ui`) against registry.npmjs.org, and a
+half-open connection - reachable but never completing - stalls it rather than
+failing fast. `--offline` does **not** prevent these lookups. Diagnosed from
+`--verbose`, which eventually prints:
 
-```bash
-timeout 90 mct create -y -o . myaddon addonStarter me "desc" || true
+```
+Could not load registry for '@minecraft/server': Error: read ECONNRESET
 ```
 
-Worse, it hangs *partway through personalisation*. The log claims it wrote
-`behavior_packs/<yourname>/manifest.json`, but on disk the folder is still the
-raw template (`aop_mobs`) with `"name": "Sample Add-on Pack"` and Mojang's
-placeholder UUIDs. **The name/creator arguments you pass do not land.** Treat
-the output as an unmodified template that you must rename and re-UUID by hand.
+If a command stalls, suspect the network before the tool. Run mct under
+`timeout` so a stall fails loudly - `scripts/verify.sh` and `scripts/deploy.sh`
+both do, defaulting to 60s.
+
+Separately, and unrelated to the network: **`create` does not apply the name and
+creator arguments you pass.** The log claims it wrote
+`behavior_packs/<yourname>/manifest.json`, but on disk the folder is the raw
+template (`aop_mobs`) with `"name": "Sample Add-on Pack"` and Mojang's
+placeholder UUIDs. Treat the output as an unmodified template to rename and
+re-UUID by hand. Confirmed on 0.17.7 and 0.17.8.
 
 Interactive. Prompts for **name, template, creator, and description**.
 Templates are grouped by experience level. Pick the closest match to your
@@ -800,7 +575,7 @@ npx mct setup -i .
 `randomizealluids` is important: templates ship with placeholder UUIDs, and two
 projects sharing a UUID is a confusing failure.
 
-**It does not live up to its name.** In mct 0.17.7 it randomizes only the two
+**It does not live up to its name.** In mct 0.17.7 and 0.17.8 it randomizes only the two
 `header.uuid` values and prints "Randomized all UUIDs in project" - every
 `modules[].uuid` keeps its template value. Verify afterwards and randomize the
 module UUIDs yourself:
@@ -860,7 +635,7 @@ Then edit `config.json` so `packs` points at the mct-generated folders:
           { "filter": "command_lang" },
           { "filter": "texture_list" },
           { "filter": "name_ninja" },
-          { "filter": "bump_manifest" }   // see gotcha table - not used here
+          { "filter": "bump_manifest" }
         ],
         "export": { "target": "local", "readOnly": false }
       }
@@ -886,7 +661,7 @@ Install filters:
 regolith install jsonte --profile=default
 regolith install texture_list --profile=default
 regolith install name_ninja --profile=default
-regolith install bump_manifest          # NOT USED - corrupts script module deps
+regolith install bump_manifest          # build profile only
 # regolith install command_lang --profile=default   # requires paid cmcc, see section 4
 ```
 
@@ -925,231 +700,60 @@ npx mct world set -i . --betaApis true      # only if you need beta APIs
 npx mct deploytestworld -i . --launch
 ```
 
-### 3g. Verify script
+### 3g. The verify gate
 
-This is the mandatory completion gate. The script below is the one actually in
-this repo at `scripts/verify.sh`, verified to fail on a broken project and pass
-on a clean one — not a sketch.
-
-Three things about `mct validate` that the obvious implementation gets wrong:
-
-- The report is written to `reports/<project>.mcr.json`, **not**
-  `reports/info.json`. The filename is derived from the project folder.
-- There is no `"type":"error"` string anywhere in it. Errors are counted in
-  `info.errorCount` and appear as items with `"iTp": 3`. Grepping for
-  `"type":"error"` matches nothing and the gate passes on a broken project —
-  the worst possible failure mode for a completion gate.
-- `mct validate` **does** exit nonzero on errors (4, observed). Beware
-  measuring this through a pipe: `mct validate ... | tail` reports `tail`'s
-  exit code, not mct's.
-
-The script gates on both the exit code and the report counts, so a change in
-either behaviour cannot silently turn it into a no-op.
+`scripts/verify.sh` is the mandatory completion gate. Read the script; it is
+short. Nothing is done until it exits 0.
 
 ```bash
-#!/usr/bin/env bash
-#
-# Mandatory completion gate for this project.
-#
-# Compiles with regolith, validates with mct, and fails loudly on any error.
-# No task is "done" until this exits 0.
-#
-# Checks BOTH the mct exit code and the counts inside the JSON report. mct
-# does return a nonzero code on validation errors (4, observed), but the
-# report is the authoritative record, and gating on both means a change in
-# either behaviour cannot silently turn this into a no-op.
-
-set -euo pipefail
-
-cd "$(dirname "$0")/.."
-
-REPORTS="reports"
-
-# Optional profile argument. Default profile exports to com.mojang; CI has no
-# com.mojang, so CI passes a profile whose export target is "local".
-PROFILE="${1:-}"
-
-echo "==> regolith run ${PROFILE}"
-regolith run ${PROFILE}
-
-# A "local"-target profile exports into build/, which mct would then scan
-# alongside packs/ - double-validating everything and doubling error counts.
-# build/ is derived and gitignored; produce release artifacts with
-# `mct exportaddon` as a separate step, not from here.
-rm -rf build
-
-echo
-echo "==> mct validate addon"
-rm -rf "$REPORTS"
-mkdir -p "$REPORTS"
-
-set +e
-mct validate addon -i . -ot json -o "$REPORTS" --threads 8
-MCT_EXIT=$?
-set -e
-
-REPORT="$(ls "$REPORTS"/*.mcr.json 2>/dev/null | head -1)"
-if [ -z "$REPORT" ]; then
-  echo
-  echo "FAIL: mct produced no report at $REPORTS/*.mcr.json (exit $MCT_EXIT)"
-  exit 1
-fi
-
-echo
-node -e '
-const fs = require("fs");
-const [report, mctExit] = process.argv.slice(1);
-let d;
-try {
-  d = JSON.parse(fs.readFileSync(report, "utf8"));
-} catch (e) {
-  console.error("FAIL: could not parse " + report + ": " + e.message);
-  process.exit(1);
-}
-
-const info = d.info || {};
-const errors   = info.errorCount || 0;
-const internal = info.internalProcessingErrorCount || 0;
-// iTp === 3 marks an error item; cross-check it against errorCount.
-const items = (d.items || []).filter(i => i.iTp === 3).length;
-
-if (errors || internal || items) {
-  console.error("VALIDATION FAILED  " + report);
-  console.error("  errors:                    " + errors);
-  console.error("  internal processing errors: " + internal);
-  console.error("  error items (iTp=3):        " + items);
-  if (info.errorSummary) {
-    console.error("");
-    console.error(info.errorSummary);
-  }
-  if (info.internalProcessingErrorSummary) {
-    console.error(info.internalProcessingErrorSummary);
-  }
-  process.exit(1);
-}
-
-if (mctExit !== "0") {
-  console.error("VALIDATION FAILED: report is clean but mct exited " + mctExit);
-  console.error("Inspect " + report + " - this means mct signalled a failure");
-  console.error("the report did not record, and the gate is not trustworthy.");
-  process.exit(1);
-}
-
-console.log("clean  " + report);
-console.log("  files scanned: " + (info.contentFileCounts || 0) +
-            " content / " + (info.fileCounts || 0) + " total");
-' "$REPORT" "$MCT_EXIT"
+./scripts/verify.sh          # default profile
+./scripts/verify.sh ci       # any profile name
+MCT_TIMEOUT=120 ./scripts/verify.sh
 ```
 
-```bash
-chmod +x scripts/verify.sh
-```
+What the script encodes, and why the obvious implementation is wrong:
 
-Parsing is done with `node`, not `python3`, because Node 22+ is already a hard
-requirement of `@minecraft/creator-tools` — no extra dependency.
+- The report is `reports/<project>.mcr.json`, **not** `reports/info.json`.
+- There is no `"type":"error"` string in it. Errors live in `info.errorCount`
+  and as items with `"iTp": 3`. Grepping for `"type":"error"` matches nothing,
+  so the gate passes on a broken project - the worst possible failure for a
+  gate. Read `info.errorSummary` for the human-readable list.
+- `mct validate` exits nonzero (4 observed), but the gate checks the exit code
+  **and** the report counts, so a change in either cannot silently disable it.
+  Beware measuring the exit code through a pipe - `mct ... | tail` gives you
+  `tail`'s status.
+- It deletes `build/` first. A `local`-target profile exports there, and mct
+  would then scan it alongside `packs/`, doubling every count.
+- mct calls are wrapped in `timeout` (60s, `MCT_TIMEOUT` to override). mct
+  resolves script module dependencies against registry.npmjs.org; a half-open
+  network stalls it for many minutes instead of failing. See the gotcha table.
+- `behaviorPackManifestCount` / `resourcePackManifestCount` read `0` even on a
+  healthy project. Do not use them as a health signal; `errorCount` is the one
+  that matters.
 
-It takes an optional profile argument: `./scripts/verify.sh` runs the `default`
-profile, `./scripts/verify.sh ci` runs the `ci` profile. That exists because
-`default` exports into `com.mojang`, which does not exist on a CI runner - see
-3h.
+`mct validate addon -i packs` also works and catches the same errors, but
+reports paths without the `packs/` prefix. `--threads` defaults to 8, caps
+at 16.
 
-Two scoping decisions worth not relitigating:
-
-- It validates with `-i .`, and deletes `build/` first. A `local`-target
-  profile exports into `build/`, which mct would then scan alongside `packs/`,
-  double-validating everything and doubling error counts. Build release
-  artifacts with `mct exportaddon` as a separate step instead.
-- `mct validate addon -i packs` also works and catches the same errors (tested
-  against a real `CADDONIREQ170`), but reports paths without the `packs/`
-  prefix. Note that `behaviorPackManifestCount` / `resourcePackManifestCount`
-  read `0` in the report even on a healthy project with both manifests
-  present - do **not** use those counters as a health signal. `errorCount` is
-  the field that matters.
-
-Failing output looks like this:
-
-```
-VALIDATION FAILED  reports/test_mcaddon.mcr.json
-  errors:                    1
-  internal processing errors: 0
-  error items (iTp=3):        1
-
-ERROR: [CADDONIREQ170] (/packs/RP/manifest.json) Resource pack manifest does
-not specify that header/pack_scope that should be 'world'
-```
-
-Passing output:
-
-```
-clean  reports/test_mcaddon.mcr.json
-  files scanned: 4 content / 12 total
-```
-
-Note `--threads` defaults to 8 and caps at 16. Large projects benefit; small
-ones will not notice.
+**The gate does not deep-validate component payloads.** A malformed component
+reports zero errors. Only loading the pack in game catches that.
 
 ### 3h. CI
 
-`.github/workflows/validate.yml`:
+`.github/workflows/validate.yml`. It installs a pinned mct plus Regolith and
+runs `./scripts/verify.sh ci` - one gate, not a reimplementation.
 
-```yaml
-name: Validate Add-on
+Two things it must keep doing:
 
-on: [push, pull_request]
+- Use the **`ci` profile**. The default profile exports to `com.mojang`, which
+  does not exist on a runner.
+- Call `verify.sh` rather than inlining an error check. The original version of
+  this workflow greped `'"type":"error"' reports/info.json`, which matches
+  nothing, so CI passed every broken build.
 
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      # Pinned rather than floating: @minecraft/creator-tools describes itself
-      # as pre-release alpha.
-      - name: Install Minecraft Creator Tools
-        run: npm install -g @minecraft/creator-tools@0.17.7
-
-      - name: Install Regolith
-        run: |
-          curl -sSL -o regolith.tar.gz \
-            https://github.com/Bedrock-OSS/regolith/releases/latest/download/regolith-linux-x64.tar.gz
-          tar -xzf regolith.tar.gz
-          sudo mv regolith /usr/local/bin/
-          regolith --version
-
-      # The one gate. Do not reimplement the error check inline here - see
-      # AGENTS.md section 3g for why the obvious grep silently passes.
-      # The "ci" profile exports to a local target; the default profile would
-      # try to write into com.mojang, which does not exist on a CI runner.
-      - name: Verify
-        run: ./scripts/verify.sh ci
-
-      - name: Upload validation report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: validation-report
-          path: reports/
-          if-no-files-found: warn
-```
-
-Run `scripts/verify.sh` rather than reimplementing the gate inline — one gate,
-one place to fix. The original version of this workflow greped
-`'"type":"error"' reports/info.json`, which matches nothing and therefore
-passed every broken build (see 3g). It also ran `mct validate` without
-`regolith run`, so it validated unexpanded sources.
-
-Java is needed only if a filter requires it. `--offline` on mct commands is
-worth considering in CI: its own help calls it "useful for CI environments
-where network is unreliable," though it notes some version checks may still
-reach the network. Pin the `@minecraft/creator-tools` version rather than
-floating on latest — the package describes itself as pre-release alpha.
-
-Note: Mojang's published example pins Node 18, but the package requires 22+.
-Use 22.
+Pin the `@minecraft/creator-tools` version rather than floating - the package
+describes itself as pre-release alpha. Keep the pin in step with what you run
+locally, or CI and your machine drift.
 
 ### 3i. Commit
 
@@ -1161,8 +765,6 @@ git commit -m "scaffold: mct template + regolith pipeline"
 ---
 
 ## 4. What the agent needs to know
-
-This is the substance of `CLAUDE.md`.
 
 ### 4a. Hard rules
 
@@ -1249,25 +851,23 @@ target too.
 
 ## 5. Packaging and release
 
-```bash
-# from: my-addon/
-regolith run build          # local export; bump versions by hand, see gotcha table
-npx mct exportaddon -i . -o build
-```
+`scripts/deploy.sh` verifies, builds with the `build` profile, and packages a
+`.mcaddon` into `build/`. It fails if no artifact appears rather than exiting 0
+having produced nothing.
 
-Produces a `.mcaddon`. For a GameTest world:
+The `build` profile runs `bump_manifest`, so versions increment on release.
+The script also restores the source manifests afterwards, because
+`mct exportaddon` rewrites dependency versions incorrectly (gotcha table).
 
-```bash
-npx mct exportworld -i . -o build
-```
-
----
+For a GameTest world: `mct exportworld -i . -o build`.
 
 ## 6. Things that will bite you
 
 | Symptom | Cause |
 | --------- | ------- |
 | Mob is invisible or magenta | RP wiring graph break. No error is emitted. |
+| `packs/BP/manifest.json` changed after a build | `mct exportaddon` resolves the latest registry version of each script module dependency and writes it back as an **array** (`[2, 9, 0]`) where a semver **string** (`"2.0.0"`) is correct for `module_name` deps. Arrays are only right for pack-UUID deps. It also strips the trailing newline. `scripts/deploy.sh` snapshots and restores the manifests; after a hand-run `exportaddon`, check `git diff packs/`. Only bites when the registry is reachable, which makes it look intermittent. |
+| `bump_manifest` writes into `packs/` | Expected, not corruption. It updates `packs/data/bump_manifest/version.json` so versions persist between builds - the documented exception to "filters never write to source". It does **not** touch dependency versions. |
 | Component silently ignored | `format_version` predates the component. |
 | Entity never changes state | Component group not reachable from any event. |
 | Two add-ons conflict on load | Duplicate UUIDs from an un-randomized template. |
@@ -1279,682 +879,5 @@ npx mct exportworld -i . -o build
 | Item is **invisible** (not magenta) | The `minecraft:icon` component shape is wrong, so nothing resolved. Magenta means a texture path resolved but the file is missing; invisible means the component itself was rejected. `minecraft:icon` is either a bare string or `{"textures": {"default": "<key>"}}` - `textures` plural, `default` required, `additionalProperties: false`. `{"texture": "x"}` is silently invalid. |
 | Validation passes but content is broken in game | `mct validate` does **not** deep-validate component payloads against the schemas. It checks manifests, pack conventions and file structure. A malformed component shape reports zero errors. Read `../mcbe-schemas/behavior/<type>/<type>.json` before writing a component - this is what rule 4a exists for, and it is easy to skip. |
 | Pack changes do not appear after `/reload` | `/reload` reloads **functions and scripts only** - not entity/block/item definitions and not textures. Use `/reload all`, which reloads all behavior and resource packs. It is implemented as a quit-and-rejoin but is effectively instant and returns you to the same spot, so there is little reason to prefer plain `/reload`. Host player only on servers. |
+| An mct command runs for minutes | Network, not the tool. mct resolves script module deps against registry.npmjs.org and a half-open connection stalls it; `--offline` does not stop those lookups. `--verbose` eventually shows `Could not load registry for '@minecraft/server'`. Both scripts wrap mct in `timeout` (60s, `MCT_TIMEOUT` to raise). npm's own `fetch-*` retry settings do not apply - mct is not npm. |
 | Custom item aux IDs unstable | Known ecosystem limitation: item ID assignment depends on pack stack order at world load, which is non-deterministic and unknowable at build time. Do not build logic on aux IDs. |
-
-## Bedrock Model Authoring: Blockbench Workflow + Agent Geometry Rules
-
-Companion to files 01 and 02. Scope: `.geo.json` block and entity models.
-Blender is explicitly out of scope. Blockbench is the only 3D tool.
-
----
----
-
-## PART 1 — For humans
-
----
-
-## 1. Terminology
-
-Bedrock does not use Java Edition's `elements[]` / `from` / `to`. Bedrock
-geometry is:
-
-```
-minecraft:geometry[]
-  description   -> identifier, texture_width/height, visible_bounds_*
-  bones[]       -> name, parent, pivot, rotation
-    cubes[]     -> origin, size, uv, inflate, rotation, pivot
-```
-
-- `origin` is a corner, `size` is an extent. (Java's `to` is an absolute
-  corner — any Java-derived tool needs a real transform, not a rename.)
-- `identifier` (e.g. `geometry.ghost`) is what entity client files and custom
-  block definitions reference.
-- Custom block geometry and entity geometry use the **same** `.geo.json`
-  format. There is no separate block model format on Bedrock.
-
-Searching for "minecraft block model element scale" returns Java tooling.
-Search `geo.json bones cubes origin size` instead.
-
----
-
-## 2. The two UV forms — the single most important distinction
-
-### Box UV (use this by default)
-
-```json
-{ "origin": [-4, 3, -4], "size": [8, 13, 8], "uv": [0, 20] }
-```
-
-One `[x, y]` offset into the atlas. The layout of all six faces is **derived**
-from `size`. Correct by construction — you cannot mis-map a face.
-
-### Per-face UV
-
-```json
-"uv": {
-  "north": {"uv": [0, 0],   "uv_size": [16, 8]},
-  "east":  {"uv": [0, 0],   "uv_size": [16, 8]},
-  "up":    {"uv": [16, 16], "uv_size": [-16, -16]},
-  "down":  {"uv": [16, 16], "uv_size": [-16, -16]}
-}
-```
-
-Full manual control. Note the **negative `uv_size`** values — those are
-deliberate axis flips (mirroring a face). Any naive scaling routine destroys
-them silently.
-
-### Why this matters for automation
-
-Scaling a cube's `size` does **not** update its UVs. In box UV that's fine,
-because the unwrap is recomputed from size. In per-face UV it means stretched
-or misplaced textures with no error message.
-
-Blockbench's own answer to this is deliberately narrow: the **Inflate** feature
-scales cubes uniformly on all axes while keeping UV mapping intact regardless
-of UV mode. Uniform-only, because non-uniform scaling with correct UV
-repacking is genuinely hard.
-
-**Practical rule: box UV until you have a specific reason not to.**
-
----
-
-## 3. The workflow
-
-```
-1. Agent writes bone tree + cubes + pivots, box UV, placeholder offsets
-2. mct rendermodel -> check the silhouette before anyone paints
-3. Blockbench: auto-UV to pack offsets and size the atlas
-4. Blockbench: export texture template (a labeled blank PNG)
-5. Paint the template in 2D
-6. Model is now "owned" - agent never rewrites this .geo.json again
-```
-
-Step 4 is why "no image model paints UVs" is not a blocker. The texture
-template **is** the UV layout rendered as a blank canvas with every face as a
-labeled rectangle in a known position. Painting it is an ordinary 2D inpainting
-task with no 3D correspondence to solve.
-
-Verify by hand: exact menu paths for auto-UV and template export, and whether
-auto-UV repacks all cubes or only the selection.
-
-### The one-directional handoff
-
-Once a texture is painted, geometry and texture are joined. An agent
-regenerating cube sizes silently invalidates the UVs. Make this a hard rule:
-**agent authors the skeleton, human takes ownership at first texture, agent
-never writes that file again.** Enforce in `.claude/settings.json`:
-
-```json
-{
-  "permissions": {
-    "deny": [
-      "Edit(**/*.geo.json)", "Write(**/*.geo.json)",
-      "Edit(**/*.bbmodel)", "Write(**/*.bbmodel)",
-      "Edit(**/*.png)",     "Write(**/*.png)"
-    ]
-  }
-}
-```
-
-Match on extension rather than directory: models and textures live inside
-`packs/RP/models/` and `packs/RP/textures/`, which must otherwise stay
-writable. A directory-wide deny there would block ordinary pack authoring.
-
-Relax it per-file only while a model is still in draft.
-
----
-
-## 4. Blockbench plugin API — the automation surface
-
-If you want scripted model manipulation, write a Blockbench plugin rather than
-editing `.geo.json` on disk. You get undo, viewport updates, and format
-normalization free. The official wiki's introductory example is almost exactly
-the "scale the elements of a template" use case:
-
-```javascript
-Plugin.register('height_randomizer', {
-    title: 'Height Randomizer',
-    author: 'YourName',
-    description: 'This plugin can randomize the height of all selected cubes',
-    icon: 'bar_chart',
-    version: '0.0.1',
-    variant: 'both',
-    onload() {
-        button = new Action('randomize_height', {
-            name: 'Randomize Height',
-            icon: 'bar_chart',
-            click: function() {
-                Undo.initEdit({elements: Cube.selected});
-                Cube.selected.forEach(cube => {
-                    cube.to[1] = cube.from[0] + Math.floor(Math.random()*8);
-                });
-                Canvas.updateView({
-                    elements: Cube.selected,
-                    element_aspects: {geometry: true},
-                    selection: true
-                });
-                Undo.finishEdit('Randomize cube height');
-            }
-        });
-        MenuBar.menus.tools.addAction(button);
-    },
-    onunload() { button.delete(); }
-});
-```
-
-Docs: <https://www.blockbench.net/wiki/docs/plugin/>
-
-Note Blockbench uses `from`/`to` internally across all formats and emits
-Bedrock `origin`/`size` on export. Do not assume the in-memory representation
-matches the file.
-
-Also relevant: Blockbench supports math expressions in several places in the
-animation workflow (see the Animation Expressions guide), which covers a
-different slice of parametric work.
-
-This is a good agent task. Plugins are plain JS with a documented API, they
-are testable by hand, and the agent never touches a `.geo.json` directly.
-
----
-
-## 5. Other tooling surveyed
-
-| Tool | Verdict |
-| --- | --- |
-| **Blockbench Plugin API** | Recommended automation surface. |
-| **Logeaddd/minecraft-ai-generate-bbmodel** | **A Claude Code skill.** Same architecture as ours, arrived at independently. Read it; don't depend on it. See section 5a. |
-| **Orca (orcaclient.com)** | Commercial AI mod pipeline + server host, with a 19-tool MCP server. Not usable as a component, but its staging and its published sample are instructive. See section 5b. |
-| **Nusiq/mcblend** | Blender. Out of scope per your decision. |
-| **SNHuan/BlockBench-tool** | Small Python `geometry.py`. Unvetted. |
-| ~20 ad-hoc `tools/gen_*.py` scripts across unrelated addon repos | The actual state of the art. Nobody has published a shared library. |
-| NetEase China Edition Bedrock skill | `netease_blocks` / `netease_items_beh` folder conventions. Item/block JSON, not geometry. Not applicable. |
-
-The absence of a shared library is a signal, not neglect: the hard part is UV
-repacking, and everyone routes around it by hand-authoring templates.
-
----
-
-## 5a. Logeaddd/minecraft-ai-generate-bbmodel — read this one
-
-<https://github.com/Logeaddd/minecraft-ai-generate-bbmodel> (MIT)
-
-Calibration before you invest: 5 stars, one author, commits spanning **two days**
-(2026-05-30 to 05-31), 40 KB total, and the `SKILL.md` still ends with two
-leftover `<!-- __CONTINUE_HERE__ -->` authoring markers. It is a weekend
-project, not infrastructure. **Do not install it as a dependency.**
-
-Read it anyway. The `SKILL.md` is 13 KB of well-reasoned design that reaches
-the same conclusions as this document independently, and states the core
-rationale more sharply:
-
-> A language model cannot reliably estimate `from`/`to`/`origin`/`uv`; doing so
-> produces the classic failures: broken proportions, float noise that looks
-> like an auto-reconstructed mesh, Z-fighting, and texture detail that was
-> painted into the atlas but never bound to the correct cuboid face.
-
-Its pipeline:
-
-```
-input (text / image)
-  -> [AI]     author asset spec JSON
-  -> [script] validate_schema      (structure, ids, ascii, references)
-  -> [script] validate_geometry    (archetype proportion anchors)
-  -> [script] build .bbmodel       (grid-snapped cuboids, hierarchy, UVs)
-  -> [script] render atlas
-  -> [script] validate_bbmodel     (faces, uv bounds, detail binding)
-  -> .bbmodel -> Blockbench for manual polish
-```
-
-### Important scope limit
-
-It targets **`.bbmodel`, not `.geo.json`.** That is Blockbench's native format,
-so it fits a Blockbench-centric workflow — you would export Bedrock geometry
-from Blockbench afterward. But it is not a Bedrock geometry generator and has
-no Bedrock export path. Our pipeline needs `.geo.json` directly, because that
-is what Regolith and `mct validate` consume.
-
-### Ideas worth lifting outright
-
-| Idea | Why |
-| --- | --- |
-| **Box UV as the default** (`uv_mode: box` with single `uv_origin`; `per_face` opt-in) | Independent confirmation of the rule in section 2. |
-| **`face_details` as a data checklist** | Each detail tagged `kind: geometry` (protrudes — ears, handles, spikes; must exist as a real part) or `kind: texture` (flat — eyes, labels; must name a real part + face inside the atlas). Both validated. This is a concrete mechanism against "painted in the atlas but bound to no face". |
-| **0.5px grid snapping** | Kills float noise. This is the difference between a clean model and one that looks auto-reconstructed. Adopt it. |
-| **Two-tier validation** | HARD failures are structural only (duplicate/missing ids, unresolved `parent`, UV outside atlas, non-ASCII names, missing `size`). Proportion checks are ADVISORY, with `--strict` to promote them. |
-| **Advisory-by-default proportions** | Rationale: a long-eared alien, a totem, a bobble-head are legitimate. Proportion rules should catch fat-fingering, not enforce style. |
-| **Targeted Z-fight offsets** | Applied only to parts explicitly tagged `z_offset_tag`, never sprinkled globally. |
-| **Explicit `size` on every part** | Stated as the single rule that "kills AI guessed the proportions". `pos` is the min corner; the script computes the far corner. |
-
-### The reverse path
-
-`scripts/bbmodel_to_spec.py` reverses an existing `.bbmodel` into an editable
-spec — your template-parameterization route. Documented honestly:
-
-- **Round-trips losslessly:** pos/size/pivot/rotation/inflate, hierarchy, UV
-  layout, resolution.
-- **Lossy:** texture pixels (use `--dump-texture`), `face_details` (returns
-  empty, re-declare), `target`/`archetype` (guessed or blank).
-
-It also sanitizes non-ASCII and duplicate element names to unique ASCII ids and
-recovers non-box UVs as explicit `per_face` — useful when ingesting foreign
-models.
-
-### Image input
-
-Supported, but through the spec, never by tracing. Its framing is worth
-repeating: read the image's *structure* (major volumes, footprint, repeated
-parts), decide which features are geometry vs texture, then write explicit
-pixel sizes into the spec. Perspective, shading, ambient occlusion and edge
-highlights are lighting, not shape — copying them is what produces mesh noise
-and phantom blocks.
-
-### What to do with it
-
-Read `SKILL.md` and `schema/asset_spec.schema.json`. Steal the spec-schema
-concept for our own `bedrock-geometry` skill, targeting `.geo.json` directly.
-The grid snap, the `face_details` binding checklist, and the hard/advisory
-split are the three highest-value borrowings.
-
----
-
-## 5b. Orca (orcaclient.com) — a commercial pipeline, examined
-
-A Minecraft server host with an AI build pipeline attached. Caveat on
-sourcing: the site is ~150 pages of heavy programmatic SEO, including 20+
-"orca-vs-competitor" pages and a page per named public server. The docs and
-the downloadable artifacts are the signal; the rest is marketing.
-
-### Their build loop
-
-Stated pipeline: the AI writes code for the chosen loader and version,
-generates textures and 3D models, compiles to a `.jar` (Fabric/Forge/
-NeoForge), a plugin `.jar`, a Bedrock add-on, or a packed `.zip`, then
-**boots a real test server and load-tests the build**. On failure it reads the
-actual error, patches code or art pack, and rebuilds until the jar compiles
-and every texture and model the mod references is present.
-
-This is the same generate → validate → auto-patch → repeat architecture as
-file 01, at commercial scale. One thing they do that is strictly stronger than
-`mct validate`: load-testing against a real running server. Worth aspiring to
-via `mct deploy --test-world --launch` once the basic loop is trusted.
-
-On Bedrock specifically, their description of the failure mode matches ours:
-the AI generates BP and RP, writes manifests, builds entity components,
-generates model and texture, then validates — *because a Bedrock pack that
-fails to load usually fails silently*.
-
-### Their MCP server
-
-Public endpoint `app.orcaclient.com/api/mcp`, 19 tools, **OAuth 2.1 rather
-than API keys**. Named tools visible: `scaffold_project`, `generate_model`,
-`finalize_model`, `load_test`, `apply_to_my_server`, `get_file`,
-`package_creation`. Also a CLI:
-
-```
-orca tool run generate_model --name cave_lizard --description "armored cave lizard"
-```
-
-Useful as a tool-decomposition reference. Note the separation of
-`generate_model` from `finalize_model` — a draft stage and a commit stage,
-which mirrors our texture-ownership handoff.
-
-### Their model staging — copy this
-
-1. **Approve the concept.** Check silhouette and anatomy *before the expensive
-   model pass*.
-2. **Build geometry.** Convert the shape into textured cuboids and meaningful
-   bones.
-3. **Rig and inspect.** Animations, pivots, head movement, and orbit views get
-   visual QA.
-
-The silhouette gate in step 1 is a better-specified version of our
-"plan first, scratch file if >8 bones" rule. Make it explicit: cheap render,
-human approves or rejects, only then spend effort on bones and UVs.
-
-### The T-rex sample — evidence, not copy
-
-They publish a real `.bbmodel` at `/capabilities/models/trex.bbmodel`. It is
-worth examining because it both validates and complicates our rules.
-
-**Good — the bone tree, which is the part we delegate:**
-
-```
-root > body > hips, torso, chest
-            > neck > neck_lower, neck_upper > head > upper_skull > jaw
-            > tail_base > tail_mid > tail_tip
-            > thigh_L > shin_L > foot_L        (mirrored right)
-            > arm_L > forearm_L                (mirrored right)
-```
-
-Segmented tail and limb chains, jaw correctly parented under head, clean ASCII
-names throughout. Two animations ship with it: a walk driving thigh/shin/tail/
-head, and a bite driving only the jaw. Animation keyframe values are clean
-integers (-24, 24, 10, -20, 22).
-
-**Concerning — the geometry:**
-
-| Field | Value | Problem |
-| --- | --- | --- |
-| `model_format` | `"free"` | **Not `"bedrock"`.** Free format is unconstrained; this is not a Bedrock-ready entity model |
-| `box_uv` | `false` | Per-face UV throughout |
-| `resolution` | 512×512 | Far beyond Bedrock convention |
-| cube coords | `-5.398`, `11.9988`, `-8.236` | Float noise, no grid snap |
-| cube rotations | `[166.9966, 0, 0]`, `[61.2961, 14.1475, 8.4105]` | Arbitrary three-axis rotations |
-| name | `trex-minecraft-oriented-v6` | "minecraft-*oriented*", and a v6 |
-
-The coordinate noise is exactly what Logeaddd's `SKILL.md` warns about:
-"float noise that looks like an auto-reconstructed mesh." A funded commercial
-product ships it in its flagship sample. **This is the strongest available
-evidence that the 0.5-unit grid-snap rule is both correct and non-obvious.**
-
-The `free` model format matters practically: reaching `.geo.json` from this
-file requires a conversion pass, and arbitrary three-axis cube rotations may
-not survive it cleanly.
-
-### Honest tension with our box-UV rule
-
-At 512×512 with per-face UV, Orca gets far finer texture control than box UV
-permits. Our box-UV-only rule is a **workflow constraint, not a universal
-truth**: it is correct because we hand off to Blockbench auto-UV and paint a
-template by hand. A pipeline that generates the atlas programmatically
-alongside the geometry — as Orca's and Logeaddd's both do — can use per-face
-sensibly. If this project ever grows a deterministic atlas generator, revisit
-section 2.
-
-### Not determined
-
-Which models they use; whether their Bedrock path emits `.geo.json` natively
-or converts from `.bbmodel`; whether Bedrock output is first-class or a
-Java-first pipeline with an adapter. The sample being `free` format rather
-than `bedrock` suggests the latter, but one artifact is not proof. Their
-crossplay is Geyser on a Java server.
-
----
-
-## 6. Recommended scope: block-family generator
-
-Do not write a general model generator. Write a block-family generator as a
-Regolith filter:
-
-```
-packs/data/geo_gen/blocks.json   {"name": "oak", "variants": ["slab","stair"]}
-        |  filter: geo_gen  (runs against .regolith/tmp)
-RP/models/blocks/*.geo.json
-BP/blocks/*.json
-RP/blocks.json + terrain_texture.json entries
-        |  export
-com.mojang/development_*_packs/
-```
-
-Filter inputs belong under `packs/data/<filter_name>/` — that is what
-`dataPath` in `config.json` is for. Generated geometry lands in the export
-target, not back in `packs/`, so it is never committed.
-
-Start from hand-authored template `.geo.json` files with correct UVs, and have
-the filter do substitution and axis-scaling with paired UV adjustment — not
-free-form geometry synthesis. The hard UV problem stays inside a few templates
-a human got right once.
-
-This works for blocks specifically because block textures are 16x16 and
-generally tileable, geometry is axis-aligned, and slabs/stairs/panels/fences
-are one template deformed on one or two axes.
-
-Reference — a vanilla-correct slab, where UV height tracks geometry height:
-
-```json
-{
-  "format_version": "1.12.0",
-  "minecraft:geometry": [{
-    "description": {
-      "identifier": "geometry.slab",
-      "texture_width": 16, "texture_height": 16,
-      "visible_bounds_width": 2, "visible_bounds_height": 2.5,
-      "visible_bounds_offset": [0, 0.75, 0]
-    },
-    "bones": [{
-      "name": "bottom_slab",
-      "pivot": [0, 0, 0],
-      "cubes": [{
-        "origin": [-8, 0, -8],
-        "size": [16, 8, 16],
-        "uv": {
-          "north": {"uv": [0, 8], "uv_size": [16, 8]},
-          "east":  {"uv": [0, 8], "uv_size": [16, 8]},
-          "south": {"uv": [0, 8], "uv_size": [16, 8]},
-          "west":  {"uv": [0, 8], "uv_size": [16, 8]},
-          "up":    {"uv": [16, 16], "uv_size": [-16, -16]},
-          "down":  {"uv": [16, 16], "uv_size": [-16, -16]}
-        }
-      }]
-    }]
-  }]
-}
-```
-
-Community note worth knowing: vanilla trapdoors have two known defects — wrong
-texture direction on some faces, and an actual height of 3 displayed as 2.95.
-Community templates fix both. Do not assume vanilla geometry is a correct
-reference.
-
-For anything organic or non-axis-aligned: Blockbench, by hand.
-
----
----
-
-## PART 2 — For the agent
-
-Content for `.claude/skills/bedrock-geometry/SKILL.md`.
-
-Prior art: `Logeaddd/minecraft-ai-generate-bbmodel` (MIT, see section 5a)
-solves an adjacent problem for `.bbmodel`. Several rules below are borrowed
-from it and marked. Nothing exists that targets Bedrock `.geo.json` directly.
-
----
-
-## What you are producing
-
-A **first draft skeleton for Blockbench**, not a finished asset. Your job is
-the bone tree, pivots, cube dimensions, and naming. Texturing is a human step.
-
-## Plan before you emit JSON
-
-Write the structure out first — parts, parent chain, pivot per bone, explicit
-`[w,h,d]` per cube, and the geometry/texture classification below — then
-produce the `.geo.json` from that plan. Emitting geometry token-by-token
-without a plan is what produces broken proportions and float noise.
-
-If the model has more than ~8 bones, write the plan to a `.md` or `.json`
-scratch file first so the human can correct the skeleton before any geometry
-exists. Cheap to fix at that stage, expensive after texturing.
-
-## The silhouette gate
-
-Before the expensive pass — before UVs, before rigging, before any texture
-work — produce the geometry and render it:
-
-```bash
-mct rendermodel <file>.geo.json -i .
-```
-
-Present the silhouette and stop. The human approves the shape and proportions
-or rejects them. Only after approval do you spend effort on UV offsets, bone
-refinement, or animation scaffolding.
-
-Rejecting a silhouette costs one cheap render. Rejecting a rigged and textured
-model costs everything downstream of it.
-
-## Model format
-
-If producing a `.bbmodel` rather than `.geo.json`, set `model_format` to
-`"bedrock"`, never `"free"`. Free format is unconstrained and is not a
-Bedrock-ready model — it permits arbitrary three-axis cube rotations and
-resolutions that will not survive conversion to `.geo.json` cleanly.
-
-Keep `resolution` to Bedrock-conventional sizes (16, 32, 64, 128). A 512×512
-atlas is a sign the pipeline has drifted away from Bedrock conventions.
-
-## Hard rules
-
-1. **Box UV only.** Emit `"uv": [x, y]`. Never emit the per-face object form
-   (`{"north": {...}}`) unless explicitly instructed. Box UV derives all six
-   faces from `size`, so it cannot be wrong; per-face UV can be wrong in ways
-   that produce no error.
-2. **Never modify a `.geo.json` that has a painted texture.** Geometry and
-   texture are joined after UV packing. Changing cube sizes silently
-   invalidates the UVs. If asked to change a textured model, say so and stop.
-3. **Never invent `format_version`.** Read it from an existing model in the
-   project. Geometry format versions (1.8.0, 1.12.0, 1.16.0, 1.21.0) differ
-   structurally, not just cosmetically.
-4. **Every bone declares a `pivot`.** No exceptions.
-5. **Placeholder UV offsets are fine.** Blockbench auto-UV repacks them. Do
-   not attempt to compute an atlas layout.
-6. **Snap all coordinates to a 0.5-unit grid.** Never emit arbitrary fractional
-   sizes or origins. Float noise is the signature of a bad auto-generated
-   model — it causes Z-fighting and makes the file unpleasant to edit by hand.
-   Deviate only when the design genuinely requires it, and say so.
-7. **Every cube declares an explicit `size`.** Never leave a dimension to be
-   "adjusted later". This single rule is what prevents guessed proportions.
-8. **All identifiers and bone names ASCII.** Non-ASCII names corrupt to
-   replacement characters (`?`) somewhere in the toolchain.
-9. **No blanket Z-fight offsets.** If two cubes are coplanar and one must sit
-   slightly proud, offset that one deliberately and note why. Never nudge
-   coordinates globally to "avoid flicker".
-
-## Pivots — the thing most often wrong
-
-`pivot` is the rotation point. It is independent of cube geometry and belongs
-at the **joint**, not the cube center.
-
-From a working model:
-
-```json
-{
-  "name": "body",
-  "parent": "root",
-  "pivot": [0, 4.625, 0],
-  "cubes": [{ "origin": [-4, 3, -4], "size": [8, 13, 8], "uv": [0, 20] }]
-}
-```
-
-The pivot (`y=4.625`) is nowhere near the cube's center. That is correct.
-
-- Arms pivot at the shoulder, near the top of the arm cube.
-- Legs pivot at the hip, near the top of the leg cube.
-- Head pivots at the neck, near the bottom of the head cube.
-
-A wrong pivot produces a model that looks fine at rest and animates wrongly.
-Nothing will warn you.
-
-## Bone tree
-
-- Exactly one root bone with no `parent`.
-- Every other bone's `parent` chain must reach that root.
-- Convention: `root` -> `body` -> `head`, `leftArm`, `rightArm`, `leftLeg`,
-  `rightLeg`.
-- A bone may have no cubes — a pure transform node is legitimate and useful
-  (`{"name": "root", "pivot": [0, 3, 0]}`).
-- **Names are an API.** Animations and render controllers address bones by
-  name. Keep names identical across a mob family.
-
-Reference shape for a quadruped/biped creature, segmented for animation:
-
-```
-root > body > hips, torso, chest
-            > neck > neck_lower, neck_upper > head > upper_skull > jaw
-            > tail_base > tail_mid > tail_tip
-            > thigh_L > shin_L > foot_L        (mirrored right)
-            > arm_L > forearm_L                (mirrored right)
-```
-
-Segment anything that needs to bend. A one-cube tail cannot swish; a three-
-segment chain can. A jaw parented under head opens independently of head
-rotation. This segmentation is a geometry decision made for animation's sake,
-so decide it before writing cubes, not after.
-
-## Description block
-
-```json
-"description": {
-  "identifier": "geometry.<name>",
-  "texture_width": 64, "texture_height": 64,
-  "visible_bounds_width": 3,
-  "visible_bounds_height": 3.5,
-  "visible_bounds_offset": [0, 1.25, 0]
-}
-```
-
-- `identifier` must match what the client entity / block definition references.
-- `texture_width`/`height` are declarations of assumed atlas size, not
-  constraints. Blockbench resizes during auto-UV.
-- `visible_bounds_*` is the culling box in model-space units. Set it
-  generously. Too small clips the model at distance — a bug that only appears
-  when the player walks away.
-
-## Classify every detail: geometry or texture
-
-Before writing any cube, enumerate the model's distinguishing features and
-label each one. (Borrowed from `minecraft-ai-generate-bbmodel`.)
-
-| Kind | Test | Consequence |
-| --- | --- | --- |
-| `geometry` | It protrudes from the silhouette — ears, horns, handles, spikes, brims, tails | Must exist as a **real cube in a real bone** |
-| `texture` | It is flat — eyes, mouths, labels, panel lines, stitching | Must be a note for the human painter, naming the **bone and face** it belongs on |
-
-Report the classification list alongside the model. For every `texture`
-detail, state which bone and which face (`north`/`south`/`east`/`west`/`up`/
-`down`) it goes on.
-
-This is the countermeasure to the most common silent failure: a detail that
-gets painted into the atlas but was never bound to a face, or a protruding
-feature that only ever existed as paint and so has no silhouette.
-
-Do not model flat details as geometry. A 1-unit-thick cube for an eye is
-wrong and causes Z-fighting.
-
-## Proportions: advisory, not enforced
-
-Sanity-check proportions against the archetype (humanoid, quadruped, prop,
-block) and **report** anything that looks off — a body narrower than it is
-tall by a wide margin, ears taller than the head, stilt legs.
-
-Report; do not silently correct. Unusual proportions are frequently
-deliberate: a long-eared alien, a totem, a bobble-head, a stylized mascot. The
-check exists to catch a fat-fingered dimension, not to enforce a house style.
-If the human confirms the look is intended, proceed unchanged.
-
-## Units
-
-Model space is 16 units per block. A 1.8-block-tall humanoid is ~29 units.
-Blocks occupy `origin [-8, 0, -8]`, `size [16, 16, 16]`.
-
-## Verification
-
-```bash
-mct rendermodel <file>.geo.json -i .
-```
-
-Renders untextured geometry to PNG. Inspect the silhouette and proportions
-before anyone paints. This is the only automated check that catches a
-structurally valid but visually wrong model.
-
-For comparison baselines:
-
-```bash
-mct rendervanilla mob minecraft:creeper -o creeper.png
-```
-
-## Escalate, do not guess
-
-- Any request touching a textured model.
-- Any per-face UV work.
-- Any non-uniform scaling of an existing model (a UV repacking problem —
-  Blockbench's Inflate is uniform-only for exactly this reason).
-- Organic or non-axis-aligned shapes. These are Blockbench-by-hand work.
-
-## Preferred automation route
-
-If asked to script model manipulation, write a **Blockbench plugin**
-(<https://www.blockbench.net/wiki/docs/plugin/>) rather than editing
-`.geo.json` files. Wrap edits in `Undo.initEdit` / `Undo.finishEdit` and call
-`Canvas.updateView`. Blockbench uses `from`/`to` in memory and emits
-`origin`/`size` on export — do not assume they match.

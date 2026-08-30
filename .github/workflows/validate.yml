@@ -15,7 +15,7 @@ jobs:
       # Pinned rather than floating: @minecraft/creator-tools describes itself
       # as pre-release alpha.
       - name: Install Minecraft Creator Tools
-        run: npm install -g @minecraft/creator-tools@0.17.7
+        run: npm install -g @minecraft/creator-tools@0.17.8
 
       - name: Install Regolith
         run: |
