@@ -15,10 +15,37 @@ highest-failure area in Bedrock add-ons.
 
 ## Confirmed lessons
 
-- You can borrow vanilla assets: `"geometry": {"default": "geometry.frog"}` and
+- You can borrow vanilla assets: a vanilla `geometry` identifier plus
   `"render_controllers": ["controller.render.default"]` give a working entity
   with no custom `.geo.json` at all. This is how an agent can produce a
-  verifiable entity without Blockbench.
+  verifiable entity without Blockbench. Vanilla **textures** can be borrowed
+  the same way (`textures/entity/skeleton/skeleton`), which is the only way to
+  recolour a mob when `.png` writes are denied to agents.
+- **Get vanilla identifiers from `bedrock-samples`, never from memory.** The
+  submodule under `../mcbe-schemas/` holds the real client entities, so the
+  correct geometry/texture pairing is a file read rather than a guess:
+  `bedrock-samples/resource_pack/entity/skeleton.entity.json` gives
+  `geometry.skeleton.v1.8` + `textures/entity/skeleton/skeleton`.
+- Many vanilla models use the legacy `1.8.0` format, where the geometry
+  identifier is a **top-level JSON key** rather than an `"identifier"` field.
+  Grepping `models/entity/` for `"identifier"` finds `geometry.zombie.drowned`
+  but **not** `geometry.zombie.v1.8`, which looks like the latter does not
+  exist. Grep for the quoted identifier itself instead.
+- A **solid-colour texture ignores UV layout**, so it maps onto any geometry.
+  The 16x16 flat `#4A7C3F` placeholder here renders correctly on frog, zombie
+  and skeleton models alike. Convenient for placeholders - and a trap, because
+  it means a geometry swap that *would* garble a real texture looks fine.
+- **`minecraft:collision_box` does not position the model.** A mob's feet sit
+  where the geometry's `0,0,0` origin puts them - the collision box is the
+  physical hitbox and nothing else. A box that disagrees with the model means
+  you swing at visible air, or hit nothing where the model looks solid; it
+  never makes the mob float or sink. Confirmed in game after the frog ->
+  skeleton/zombie swap: `example_entity` kept a 1x1 box under a 1.9-tall
+  zombie model and still stood correctly on the ground.
+
+  Worth keeping them in agreement anyway, for hitboxes that match what players
+  see. Vanilla skeleton/zombie are 1.9 x 0.6. But it is a BP component and
+  nothing links the two, so no tooling will tell you they diverged.
 - Texture values are **paths** (`textures/<creator>/<game>/entity/foo`), unlike
   block and item textures which are **keys** into a `*_texture.json`. Mixing
   these up is easy.

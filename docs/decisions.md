@@ -273,8 +273,191 @@ inventory.
 
 ---
 
+## Entity reuse goes through jsonte modules, not a custom filter
+
+**Decided.** Shared entity structure is authored as jsonte `$module`
+definitions in `packs/BP/modules/`, composed by `$extend` from a `.templ`, and
+parameterised by `$scope`. No custom Regolith filter, no code generator.
+
+The alternatives considered were a JS/TS generator script and a repo-local
+Regolith filter. Both were rejected for the same reason: they would sit outside
+or alongside the filter chain the project is already built on, and they lock in
+a spec format before we know what actually varies between mobs. jsonte was
+already installed, is self-contained, and its module system is a direct answer
+to the problem.
+
+The binding rule is in `AGENTS.md` section 4: **a module owns a whole state
+machine or none of it.** The specific failure being designed out is a component
+group that no event adds — dead code that neither the engine nor `mct validate`
+reports. Modules that emit the closed loop make it unrepresentable.
+
+**Revisit if:** a mob needs structure that is genuinely per-file rather than
+shared, or if `$scope` parameterisation stops being expressive enough and
+templates start carrying conditional logic that would read better as code.
+
+---
+
+## `system_template` is rejected — superseded by its own author
+
+**Closed, 2026-08-30.** An earlier draft of this file deferred `system_template`
+as a promising follow-up. That was based on its introduction page; the rest of
+its docs 404'd at the time and were never read.
+
+It is **superseded**. ModularMC's documentation describes itself as "a
+TypeScript-based successor to the System Template filter," and the commit
+record agrees: `system_template`'s last commit is **2025-03-27**, seventeen
+months before this was checked, while `modular_mc` was active as of
+**2026-06-05**.
+
+Do not re-open this. If the file-grouping idea is ever revisited, the candidate
+is `modular_mc`, evaluated below.
+
+---
+
+## jsonte is retained over `modular_mc`
+
+**Decided 2026-08-30, after building and reverting a working probe.**
+
+`modular_mc` was installed, the `stalker` was moved into a
+`data/modular_mc/stalker/` module with a `_map.ts`, and the full gate was run.
+**It worked** — the two filters coexist if `modular_mc` runs first, placing the
+`.templ` into `BP/entities/` for jsonte to expand. The probe was then reverted.
+
+Stacking them is not the intended design, and the probe was never meant to
+ship: `modular_mc` bundles its own JSON Template, JSON merge, text templates and
+esbuild, so it **overlaps jsonte** rather than complementing it. It can do what
+`proximity_aggro.modl` does, via several sources merging into one target with
+`onConflict: "merge"`. So the real choice is either/or.
+
+What decided it:
+
+| | jsonte | modular_mc |
+| --- | --- | --- |
+| Runtime | self-contained Go binary | needs Deno |
+| `mct validate` coverage | full | **loses files moved into modules** |
+| Reference safety | `$extend: ["name"]` — a **string** | `_resource_map.ts` — a **typed import** |
+| Verified here | yes, in game | seam only |
+| Public projects using it | 1 (`r4isen1920/OriginsPE`) | 0 found |
+| Stars | 8 | 6 (whole repo) |
+
+The `mct validate` loss is the decisive one. Files inside a `modular_mc` module
+are no longer classified as content by mct — measured: the content count fell
+17 → 16 when one `.entity.json` moved out of `packs/RP/`. Since `verify.sh`
+deletes `build/` before mct runs, such files end up validated **nowhere**. In a
+project whose central discipline is that gate, that is a permanent reduction in
+coverage, traded for grouping that pays off only at many entities.
+
+`modular_mc`'s typed imports **are** genuinely better than jsonte's string
+`$extend`, which silently stops resolving if a module is renamed. That is a
+known weakness of the current approach, recorded rather than solved.
+
+**Revisit if:** there are several mobs each with grouped BP+RP+texture+sound
+assets, or `modular_mc` shows real adoption. Any revisit must also answer how
+the verify gate keeps covering module files — most likely by validating the
+build output instead of `packs/`.
+
+---
+
+## Tool selection criterion: prefer what the official tools understand
+
+**Decided 2026-08-30.** The standing test for any new layer in the toolchain:
+
+> **Does it keep source files in the shape the official tools expect?**
+
+`mct` classifies content by its pack-relative location - `packs/BP/entities/…`
+is an entity, a file in `packs/data/…` is not. Any layer that *relocates source
+out of that shape* pays a permanent tax: everything it moves silently drops out
+of `mct validate`, and the verify gate - this project's central discipline -
+quietly covers less than it appears to.
+
+This is the general rule behind three decisions already made here:
+
+- jsonte over `modular_mc`. jsonte expands **in place**: a `.templ` lives at
+  `packs/BP/entities/` and becomes a `.json` there. `modular_mc` moves source
+  into `data/`, and the content count fell 17 → 16 the moment one file did.
+- `packs/` is source, not build output.
+- `../mcbe-schemas` lives outside the repo, so mct does not walk it.
+
+Judge the next candidate layer against this directly rather than re-deriving it.
+A layer that is *more* capable but *less* legible to mct is the trade this
+project declines by default - and the burden is on the new layer to show how the
+gate keeps its coverage.
+
+---
+
+## The template demonstrates both plain and templated authoring
+
+**Decided 2026-08-30.** Every content type should ship **two** worked examples:
+one using only Regolith standard-library filters, and one using jsonte.
+
+The reason is the decision above. jsonte is a defensible local choice, not a
+Bedrock standard, and someone adopting this template may reasonably refuse any
+non-standard layer. They should be able to delete jsonte from the profiles, copy
+the plain example, and have a working project - without first reverse-engineering
+which parts were jsonte-specific.
+
+Current state - **entities only**:
+
+| Type | Plain (standard filters) | jsonte |
+| --- | --- | --- |
+| Entity | `example_entity` - literal JSON | `stalker` - `.templ` + two `.modl` modules |
+| Block | `example_block.json` | **missing** |
+| Item | `example_item.json` | **missing** |
+
+Blocks and items have no templated counterpart yet. That gap is the open work
+this decision implies.
+
+**Caveat, and it matters:** the two paths are separable at the *authoring*
+level, not the *config* level. Removing jsonte from the profiles while a
+`.templ` still exists would copy it unexpanded into the pack, where Minecraft
+ignores it and mct would likely flag it. "Use the plain path" means authoring
+literal JSON, not disabling the filter with templates still present. Whether mct
+actually errors on a stray `.templ` has not been tested.
+
+---
+
+## Neither templating tool is "standard"; skills must not depend on one
+
+**Decided 2026-08-30.** Checked while choosing between jsonte and
+`modular_mc`, because this repo exists to establish practices worth teaching.
+
+There is no dominant standard in this category:
+
+- The Bedrock-OSS **standard library** (`Bedrock-OSS/regolith-filters`) holds
+  twelve filters — `blockbench_convert`, `bump_manifest`, `filter_tester`,
+  `fix_emissive`, `gametests`, `json_cleaner`, `json_convert`, `name_ninja`,
+  `qjs_opt`, `texture_convert`, `texture_list`, `type_gen`. **jsonte is not
+  among them**, and neither is `system_template` or `modular_mc`.
+- Searching the whole `Bedrock-OSS/regolith` repo (compiler and its autodocs)
+  for "jsonte" returns **zero** hits. The docs' only install example is
+  `regolith install name_ninja`.
+- The Bedrock-OSS filter **resolver** lists all of them, but it is a flat
+  name→URL map with no curation, no categories and no deprecation markers.
+  Appearing there is not endorsement.
+- Both candidates are effectively single-maintainer projects in single digits
+  of stars.
+
+So jsonte is chosen as the *least bad* option, not the winner — and
+`system_template` failing to become standard across three major versions is
+evidence the category may never consolidate.
+
+**The rule this implies:** a `bedrock-<thing>` skill teaches **Bedrock
+semantics**, never tool syntax. Component groups are states and events are
+transitions in plain JSON, under jsonte, and under any successor; that
+knowledge outlives the toolchain. Templating syntax stays quarantined in
+`bedrock-jsonte`. `docs/` already splits this way — `bedrock-entity-notes.md`
+versus `bedrock-jsonte-notes.md` — and that separation is now deliberate, so
+replacing the templating layer costs one skill rather than all of them.
+
+---
+
 ## Not yet decided
 
+- **jsonte examples for blocks and items.** Required by "The template
+  demonstrates both plain and templated authoring", not yet built. Entities are
+  the only type with both. A block family (variants from one template) and an
+  item set are the obvious candidates - and per the skill policy, a block family
+  is also what `bedrock-jsonte` needs before it can become a skill.
 - **Whether to enable Beta APIs.** Required for GameTest. Adding a
   `@minecraft/server-gametest` dependency changes what the pack needs to load,
   so it is deliberate. See `docs/gametest-notes.md`.

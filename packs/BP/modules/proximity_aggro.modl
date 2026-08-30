@@ -1,0 +1,88 @@
+{
+  // Proximity aggro state machine.
+  //
+  // Owns BOTH component groups, BOTH events, and BOTH environment sensors as a
+  // single unit. This is deliberate: a component group that no event ever adds
+  // is dead code, and nothing warns you - not the engine, not `mct validate`.
+  // Emitting the closed loop from one module makes that failure unrepresentable
+  // rather than merely unlikely.
+  //
+  // Requires from the extending file's $scope:
+  //   aggro_range  - distance (blocks) at which calm -> aggro
+  //   calm_range   - distance (blocks) at which aggro -> calm (must be > aggro_range)
+  //   calm_speed   - movement speed while wandering
+  //   chase_speed  - movement speed while chasing
+  //
+  // Each state carries only its own sensor, so the "player got close" watcher
+  // does not exist while already aggro, and vice versa. The asymmetric ranges
+  // give hysteresis; without it the mob would oscillate at the boundary.
+  "$module": "proximity_aggro",
+  "$template": {
+    "minecraft:entity": {
+      "component_groups": {
+        "calm": {
+          "minecraft:movement": { "value": "{{calm_speed}}" },
+          "minecraft:environment_sensor": {
+            "triggers": [
+              {
+                "event": "addontemplate:become_aggro",
+                "target": "self",
+                "filters": {
+                  "test": "distance_to_nearest_player",
+                  "operator": "<=",
+                  "value": "{{aggro_range}}"
+                }
+              }
+            ]
+          }
+        },
+        "aggro": {
+          "minecraft:movement": { "value": "{{chase_speed}}" },
+          "minecraft:behavior.nearest_attackable_target": {
+            "priority": 2,
+            "must_see": false,
+            "reselect_targets": true,
+            "within_radius": "{{calm_range}}",
+            "entity_types": [
+              {
+                "filters": { "test": "is_family", "subject": "other", "value": "player" },
+                "max_dist": "{{calm_range}}"
+              }
+            ]
+          },
+          "minecraft:behavior.melee_attack": {
+            "priority": 3,
+            "track_target": true,
+            "speed_multiplier": 1.0
+          },
+          "minecraft:environment_sensor": {
+            "triggers": [
+              {
+                "event": "addontemplate:calm_down",
+                "target": "self",
+                "filters": {
+                  "test": "distance_to_nearest_player",
+                  "operator": ">=",
+                  "value": "{{calm_range}}"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "events": {
+        "minecraft:entity_spawned": {
+          "add": { "component_groups": ["calm"] }
+        },
+        "addontemplate:become_aggro": {
+          "remove": { "component_groups": ["calm"] },
+          "add": { "component_groups": ["aggro"] }
+        },
+        "addontemplate:calm_down": {
+          "remove": { "component_groups": ["aggro"] },
+          "add": { "component_groups": ["calm"] }
+        }
+      }
+    }
+  }
+}

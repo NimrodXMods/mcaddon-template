@@ -1,0 +1,46 @@
+{
+  // A mob that wanders obliviously until you get close, then chases you down.
+  //
+  // The whole state machine comes from the two modules below. Authoring a new
+  // mob of this shape means changing the identifier and the four numbers in
+  // $scope - not copying a component group and hoping its event came with it.
+  "$extend": ["wandering", "proximity_aggro"],
+  "$scope": {
+    "aggro_range": 4,
+    "calm_range": 12,
+    "calm_speed": 0.25,
+    "chase_speed": 0.45
+  },
+  "$template": {
+    "format_version": "1.20.80",
+    "minecraft:entity": {
+      "description": {
+        "identifier": "addontemplate:stalker",
+        "is_spawnable": true,
+        "is_summonable": true
+      },
+      "components": {
+        "minecraft:health": { "value": 20, "max": 20 },
+        // Matches geometry.skeleton.v1.8 on the RP side (vanilla skeleton is
+        // 1.9 x 0.6). This is the physical hitbox only - it does NOT position
+        // the model. Where the mob's feet land is set by the geometry's 0,0,0
+        // origin. A mismatch means you swing at visible air, or hit nothing
+        // where the model looks solid; it never makes the mob float or sink.
+        "minecraft:collision_box": { "height": 1.9, "width": 0.6 },
+        // NOT "inanimate" - example_entity claims that, but a mob that walks
+        // and attacks is not inanimate and vanilla filters key off this.
+        "minecraft:type_family": { "family": ["addontemplate", "stalker", "monster", "mob"] },
+        "minecraft:physics": {},
+        "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true },
+        "minecraft:movement.basic": {},
+        "minecraft:navigation.walk": {
+          "can_path_over_water": false,
+          "avoid_water": true
+        },
+        "minecraft:jump.static": {},
+        "minecraft:attack": { "damage": 3 },
+        "minecraft:behavior.float": { "priority": 0 }
+      }
+    }
+  }
+}

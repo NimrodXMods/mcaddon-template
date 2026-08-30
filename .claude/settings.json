@@ -59,6 +59,8 @@
       "Write(**/*.png)"
     ],
     "ask": [
+      "Bash(magick:*)",
+
       "Bash(git push:*)",
       "Bash(git commit:*)",
       "Bash(mct exportaddon:*)",

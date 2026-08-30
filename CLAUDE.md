@@ -56,6 +56,22 @@ introspection, not a dependency — the real verify loop is
 `./scripts/verify.sh` through the Bash tool. Do not architect around the MCP
 server.
 
+Because Claude Code starts that server automatically at session start, a
+long-lived `node ... creator-tools\cli\index.mjs mcp` process holds the
+package's native addons open for the whole session. On Windows that makes
+`npm install -g @minecraft/creator-tools` fail to clean up
+(`EPERM ... unlink ... node.napi.node`), stranding a ~55 MB staging directory.
+**Stop the MCP server before any global install of creator-tools** — killing
+it costs nothing here, and a session restart respawns it. Find the process
+with:
+
+```bash
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { \$_.CommandLine -like '*creator-tools*' } | Select-Object ProcessId,CommandLine"
+```
+
+`AGENTS.md` section 2 has the full diagnosis; only the "Claude Code is what
+started it" part is specific to this harness.
+
 **Context7**: the claude.ai Context7 connector is available in this harness
 for prose documentation lookups. The library IDs live in the "Canonical
 documentation" table in `AGENTS.md` — they are plain Context7 identifiers,

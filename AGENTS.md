@@ -144,6 +144,60 @@ npx mct --all-commands     # includes internal/advanced commands
 Status note: the package README describes itself as pre-release alpha. Pin a
 version in CI rather than floating on latest.
 
+### When `mct` is not on PATH
+
+A global install can end up **incomplete**, and `verify.sh` then dies at
+`timeout: failed to run command 'mct'` while `regolith run` succeeds - the gate
+half-runs and looks like a project problem when it is an install problem.
+
+**The cause is usually not creator-tools.** npm's global prefix is a single
+shared tree: `npm install -g <anything>` re-reifies the whole thing and runs
+**every** installed package's install scripts. One unrelated postinstall
+failing aborts the entire transaction - after tarballs are extracted but before
+package metadata and bin shims are finalized - so unrelated packages are left
+half-written. Diagnosed here (2026-08-30) from the npm debug log:
+
+```
+error path   ...\node_modules\glslang-validator-prebuilt
+error command cmd.exe /d /s /c node build.js
+error Error: Cannot find module 'rimraf'
+silly unfinished npm timer build:run:postinstall:node_modules/glslang-validator-prebuilt
+```
+
+Those `unfinished ... timer` lines are the tell that npm died mid-reify.
+`glslang-validator-prebuilt` was the poison pill; creator-tools was collateral
+damage and had no `mct` shim as a result.
+
+Two diagnostics, in order:
+
+1. `npm ls -g --depth=0` - **a package printed with an empty version after the
+   `@` is half-installed.** That names the victim.
+2. The npm debug log path the failure prints. Grep it for `error code` and
+   `unfinished npm timer` - that names the *cause*, which is a different
+   package.
+
+A second, compounding failure mode on Windows: if a process has one of the
+package's native addons (`.node`) mapped, npm cannot unlink it
+(`EPERM ... unlink ... node.napi.node`) and leaves a stranded
+`node_modules/@minecraft/.creator-tools-<hash>/` staging copy. Here that was
+this repo's own `mct mcp` MCP server. **Stop the MCP server before a global
+install that touches creator-tools.** See the gotcha table.
+
+The workaround that never writes to the global tree at all:
+
+```bash
+npx -y -p @minecraft/creator-tools mct validate addon -i . -ot json -o reports --threads 8
+```
+
+Do **not** try to fix this by dropping a shell-script `mct` shim on PATH:
+`verify.sh` invokes mct through `timeout`, which `exec`s directly, and Windows
+cannot exec a shebang script. The shim is invisible to it. Either repair the
+global install or run the two halves of the gate by hand.
+
+Note also that repairing the tree can silently **change versions of unrelated
+packages** - four were rolled back here as a side effect. Re-check
+`npm ls -g --depth=0` afterwards.
+
 ### Command groups worth memorizing
 
 | Group | Commands |
@@ -224,6 +278,60 @@ regolith install github.com/MCDevKit/regolith-library/command_lang --profile=def
   `query`, which binds a Molang query boolean to a field and injects the
   needed animation controller for you.
 
+### The entity-authoring pattern
+
+jsonte modules are how this repo gets a DSL-like authoring surface without a
+custom filter. The rule that makes it worth doing:
+
+> **A module owns a whole state machine — every component group, every event,
+> and every sensor that references them — or it owns none of it.**
+
+The failure this prevents is the one nothing warns you about: a component
+group that no event ever adds is dead code, and neither the engine nor
+`mct validate` says a word. A module that can emit a group without its event
+makes that failure *possible*; one that emits the closed loop makes it
+*unrepresentable*. Tuning values come from `$scope` on the extending file, so
+a second mob of the same shape differs by numbers, not by a copied state
+machine.
+
+Worked example: `packs/BP/modules/proximity_aggro.modl` +
+`wandering.modl` → `packs/BP/entities/stalker.behavior.templ`. Note that
+`wandering` deliberately does *not* own a state machine — it only contributes
+behaviours into a group `proximity_aggro` defines, which is why its header
+says to always `$extend` both together.
+
+Where the line falls: the BP entity is a `.templ` because its state machine is
+shared; the RP client entity stays literal `.json` because every field in it
+is unique to that one mob.
+
+**Every content type ships two worked examples** — one using only Regolith
+standard-library filters, one using jsonte — so anyone who declines the
+non-standard layer can still copy a working example. Entities have both
+(`example_entity` plain, `stalker` templated); blocks and items do **not** yet.
+See `docs/decisions.md`.
+
+The selection criterion behind that, and behind rejecting `modular_mc`:
+**prefer what the official tools understand.** mct classifies content by
+pack-relative location, so a layer that relocates source out of `packs/`
+silently drops it from `mct validate`. jsonte expands in place and keeps the
+gate honest.
+
+### Alternatives: evaluated and rejected
+
+`system_template` is **superseded** by `modular_mc` (same author; its docs call
+it "a TypeScript-based successor"). Do not evaluate `system_template`.
+
+`modular_mc` was installed, probed against a real mob, and **reverted** on
+2026-08-30. It works and coexists with jsonte, but it overlaps jsonte rather
+than complementing it, and files moved into its modules stop being validated by
+`mct`. Full reasoning in `docs/decisions.md`.
+
+**Neither jsonte nor `modular_mc` is a Bedrock standard** — jsonte is absent
+from the Bedrock-OSS standard library and unmentioned anywhere in the Regolith
+repo. jsonte is a defensible local choice, not the industry default. The rule
+this implies is in `docs/decisions.md`: a `bedrock-<thing>` skill teaches
+Bedrock semantics, never tool syntax.
+
 ### command_lang requires `cmcc`, which is a paid product
 
 This is the one prerequisite that will stop a build cold, and neither the
@@ -267,7 +375,34 @@ compile.
 
 ```bash
 git clone --depth=1 https://github.com/Blockception/Minecraft-bedrock-json-schemas.git ../mcbe-schemas
+cd ../mcbe-schemas
+git submodule update --init --depth 1 bedrock-samples
 ```
+
+**Always initialize the `bedrock-samples` submodule.** It is not optional
+extra: a plain clone leaves `bedrock-samples/` empty (`git submodule status`
+shows a leading `-`), and that directory is the project's only local copy of
+**what vanilla actually contains** - reference and test assets both. The
+schemas tell you the *shape* a component may take; `bedrock-samples` tells you
+the *values* that really exist. Use `--depth 1`; the full history is large and
+nothing here needs it.
+
+Worked example of why: switching the template entities off `geometry.frog`
+required real geometry identifiers and texture paths. mct's bundled data
+suggested candidates, but only `bedrock-samples/resource_pack/` confirmed that
+skeleton is `geometry.skeleton.v1.8` with
+`textures/entity/skeleton/skeleton` - and that both are declared in the legacy
+`1.8.0` format where the identifier is a **top-level key**, not an
+`"identifier"` field, so grepping for `"identifier"` finds neither.
+
+Useful paths inside it:
+
+| Path | Holds |
+| --- | --- |
+| `bedrock-samples/resource_pack/entity/*.entity.json` | vanilla client entities - the authoritative geometry/texture/material/render-controller pairing for any vanilla mob |
+| `bedrock-samples/resource_pack/models/entity/*.geo.json` | geometry definitions |
+| `bedrock-samples/resource_pack/textures/entity/**` | vanilla texture paths safe to reference from your own RP |
+| `bedrock-samples/behavior_pack/entities/*.json` | vanilla BP entities - component groups and events as Mojang writes them |
 
 Schema filenames are not always what you would guess - for example
 `behavior/animation_controllers/animation_controller.json` (singular) but
@@ -389,6 +524,41 @@ Rationale for what *is* denied:
   a directory-wide deny there would be too broad. Relax the extension denies
   per-file while a model is still a draft.
 
+**Know what these denies actually constrain.** `Write(**/*.png)` binds the
+**Write and Edit tools** - not the filesystem. A Bash command
+(`magick -size 16x16 xc:'#4A7C3F' out.png`, `python -c "...PIL..."`) writes a
+`.png` without tripping it. Both ImageMagick and Pillow are installed here, so
+this is reachable, not theoretical.
+
+The policy that resolves this: **`Bash(magick:*)` is in the `ask` list**, and
+the `.png` extension denies stay. So generating a placeholder texture is
+allowed but always prompts - never silent - while the Write/Edit tools still
+cannot touch art at all.
+
+Why this shape rather than narrowing the deny to specific paths:
+
+- **`deny` beats `allow` in Claude Code.** An allow cannot carve an exception
+  out of `Write(**/*.png)`; the deny wins. Narrowing would mean replacing the
+  extension deny with path denies, and protection would become path-based -
+  every new art directory would have to be added to the deny list, and a
+  forgotten one is unprotected.
+- **The Write tool cannot emit binary anyway.** PNG creation necessarily goes
+  through Bash, so gating the Bash command is where the real control is. The
+  extension deny is what stops an agent clobbering a real texture with text.
+
+Placeholder textures go in `packs/RP/textures/addontemplate/common/entity/`.
+**Both halves of the CADDONREQ rule are confirmed by experiment here**
+(2026-08-30), not just documented:
+
+| Path | `./scripts/verify.sh ci` |
+| --- | --- |
+| `addontemplate/common/entity/*.png` | clean; content file count 16 -> 17, so it really was scanned |
+| `addontemplate/testdir/entity/*.png` | **CADDONREQ108** - "Secondary folder 'addontemplate' in textures has more than one subfolder (besides 'common')" |
+
+So `common` is genuinely special-cased, and a second ordinary subfolder fails
+the gate. Note `magick` is the ImageMagick entry point - on Windows,
+`convert` resolves to `C:\Windows\System32\convert`, the disk utility.
+
 The `ask` list covers things that mutate project identity or history
 (`git commit`/`push`, `mct create`/`set`/`add`, the export commands) - allowed,
 but with a confirmation step.
@@ -507,6 +677,7 @@ my-addon/
 │   ├── BP/                     # behavior pack
 │   │   ├── manifest.json
 │   │   ├── entities/           # .json, or .templ for jsonte
+│   │   ├── modules/            # .modl - jsonte $module definitions
 │   │   ├── blocks/
 │   │   ├── items/
 │   │   ├── functions/          # .mcfunction, or .mcc for command_lang
@@ -536,11 +707,17 @@ my-addon/
 └── reports/                    # gitignored
 
 ../mcbe-schemas/                # sibling clone, deliberately OUTSIDE the repo
+└── bedrock-samples/            # submodule - MUST be init'd; vanilla assets
 ```
 
 Template and CommandLang sources live **inside** `packs/`, alongside the JSON
 they expand into — jsonte and command_lang discover `.templ` and `.mcc` by
 scanning the temp copy of the packs. There is no separate templates directory.
+
+`packs/BP/modules/` is a *requirement*, not a preference: the jsonte filter
+compiles only `BP/` and `RP/`, so a `.modl` module placed in `packs/data/jsonte/`
+is never loaded and fails silently. `data/jsonte` is a variable *scope* path,
+not a module search path. See `docs/bedrock-jsonte-notes.md`.
 
 `../mcbe-schemas` is kept outside the project on purpose: anything under the
 project root gets walked by `mct validate`, and the schema clone's ~1200 files
@@ -550,6 +727,11 @@ biome *schemas* as biome *definitions*. Reproduce with
 `mct validate addon -i ../mcbe-schemas`. Those particular errors are logged to
 stderr but never reach `info.errorCount`, so they would not fail the gate;
 the reason to move the clone out is report noise, not a false failure.
+
+Initializing the `bedrock-samples` submodule makes this **much** more
+important: it adds the whole vanilla resource and behaviour pack to that tree.
+Keeping it a sibling is what lets the gate stay at "16 content / 37 total
+files scanned" instead of tens of thousands.
 
 ### `.gitignore`
 
@@ -926,4 +1108,12 @@ For a GameTest world: `mct exportworld -i . -o build`.
 | Validation passes but content is broken in game | `mct validate` does **not** deep-validate component payloads against the schemas. It checks manifests, pack conventions and file structure. A malformed component shape reports zero errors. Read `../mcbe-schemas/behavior/<type>/<type>.json` before writing a component - this is what rule 4a exists for, and it is easy to skip. |
 | Pack changes do not appear after `/reload` | `/reload` reloads **functions and scripts only** - not entity/block/item definitions and not textures. Use `/reload all`, which reloads all behavior and resource packs. It is implemented as a quit-and-rejoin but is effectively instant and returns you to the same spot, so there is little reason to prefer plain `/reload`. Host player only on servers. |
 | An mct command runs for minutes | Network, not the tool. mct resolves script module deps against registry.npmjs.org and a half-open connection stalls it; `--offline` does not stop those lookups. `--verbose` eventually shows `Could not load registry for '@minecraft/server'`. Both scripts wrap mct in `timeout` (60s, `MCT_TIMEOUT` to raise). npm's own `fetch-*` retry settings do not apply - mct is not npm. |
+| `timeout: failed to run command 'mct'` while `regolith run` succeeds | The global install is half-written, but creator-tools is rarely the culprit - **npm's global prefix is one shared tree**, and `npm i -g <anything>` re-reifies all of it and runs every package's install scripts. One unrelated postinstall failing aborts the whole transaction after extraction but before bin shims are linked. Observed here: `glslang-validator-prebuilt` died with `Cannot find module 'rimraf'`, leaving creator-tools with no `mct` shim. Diagnose from `npm ls -g --depth=0` - **a package printed with an empty version after the `@` is half-installed** - then the npm debug log the failure names. Recovery: remove the failing package, reinstall, re-check. See section 2. |
+| `npm warn cleanup ... EPERM: operation not permitted, unlink ...node.napi.node` | A running process has the native addon (`.node` = a DLL) mapped, and Windows will not unlink a loaded DLL. Almost always the **`mct mcp` MCP server this repo's `.mcp.json` starts**, holding `bufferutil`. npm finishes the install but cannot swap or clean its staging directory, stranding a ~55 MB `node_modules/@minecraft/.creator-tools-<hash>/` copy - whose truncated `dist lib node_modules res` contents are easily mistaken for a corrupt package. Stop the MCP server before any global install touching creator-tools, or use `npx -y -p @minecraft/creator-tools mct ...` which never writes to the global tree. Find leftovers with `find "$(npm config get prefix)/node_modules" -maxdepth 2 -name '.*-*' -type d`. |
+| jsonte: `Failed to parse JSON ... Unexpected token '{'` | `{{ }}` was used outside a string. A `.templ` must be valid JSON *before* templating, so write `"value": "{{expr}}"`. A string that is entirely one expression is type-coerced on output, so this still emits an unquoted number. |
+| A `.modl` module is never loaded, with no warning | It is outside `BP/` or `RP/`. The jsonte filter hardcodes `compile ... BP/ RP/`; `data/jsonte` is a variable **scope** path, not a module search path. Put modules in `packs/BP/modules/`. |
+| Empty `modules/` folder ships inside the pack | `--remove-src` deletes the source `.modl` files but not their directory, and the filter's arguments are hardcoded so `--exclude` is unreachable. Cosmetic - Minecraft ignores unknown directories. |
+| `config.json` fully rewritten after `regolith install` | Expected, and unrelated to your change. It reserializes the whole file: 2-space indent becomes **tabs**, profiles and settings keys are **reordered alphabetically**, and the **trailing newline is stripped** - so the diff swamps the one line you wanted. It also adds only the `filterDefinitions` entry; **adding the filter to each profile's `filters` array is manual.** Snapshot `config.json` first if you want a readable diff, the way `scripts/deploy.sh` snapshots manifests around `mct exportaddon`. |
+| Model looks floating / sunk, and `collision_box` does not fix it | `minecraft:collision_box` is the **physical hitbox only** - it never positions the model. Feet land where the geometry's `0,0,0` origin puts them, so vertical placement is fixed in the `.geo.json`, not the BP. A mismatched box means you swing at visible air (or hit nothing where the model looks solid), which is a real bug but a different one. |
+| A `behavior.*` goal appears absent from the schemas | AI goals live in `source/behavior/entities/format/behaviors/` (e.g. `behaviors/melee_attack.json`), **not** in the sibling `components/` directory. Grepping `components/` finds nothing and looks like the component does not exist. |
 | Custom item aux IDs unstable | Known ecosystem limitation: item ID assignment depends on pack stack order at world load, which is non-deterministic and unknowable at build time. Do not build logic on aux IDs. |
