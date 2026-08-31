@@ -101,6 +101,33 @@ safety check failure in the gotcha table.
   `%LOCALAPPDATA%\regolith\project-cache\<hash>` even with
   `use_project_app_data_storage: false`. Not investigated.
 
+### The `gametests` filter is misnamed - it is the TypeScript filter
+
+**Not installed here - not verified.** Worth recording because the name
+actively misleads.
+
+`gametests` (Bedrock-OSS standard set) is the filter that lets you write pack
+scripts in **TypeScript**, transpiling them to JavaScript with esbuild as part
+of the build. Testing is only one use; it is the general answer to "how do I
+use TypeScript in a Bedrock pack", and for many users it is the main reason to
+adopt Regolith at all.
+
+The name is historical. The filter predates the current Scripting API, back
+when Minecraft's only scripting surface was the GameTest API for writing pack
+tests - so it was named after that. It was never limited to tests.
+
+The second capability matters as much as transpilation: it **controls what
+gets included in the output**, so test code can be excluded from a production
+build while staying in the source tree. That is a build-profile concern and
+maps onto the profiles already here - a `default` build could carry tests for
+in-game runs while `build` (the release path) omits them. Compare
+`bump_manifest`, which is likewise wired into `build` only.
+
+Relevant to this project because `docs/gametest-notes.md` records GameTests as
+"not wired up", and `packs/BP/scripts/` currently holds a single hand-written
+`main.js` with no TypeScript, `tsconfig.json` or `package.json` anywhere. If
+scripting grows beyond one file, this filter is the decision point.
+
 ### Resolvers are an install-time index only
 
 `user_config.json` lists resolvers; regolith keeps each as a **full git clone**

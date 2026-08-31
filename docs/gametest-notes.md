@@ -27,6 +27,15 @@ skill policy in `docs/decisions.md`, these notes become
 `.claude/skills/bedrock-gametest/SKILL.md` once GameTests have actually been
 authored and run against real content.
 
+## The `gametests` *filter* is a different thing from the GameTest *API*
+
+Do not conflate them. This file is about the API - `@minecraft/server-gametest`,
+`register`, `.mcstructure` fixtures. The Regolith filter called `gametests` is
+a **TypeScript build filter**: it transpiles TS to JS with esbuild and controls
+what lands in the output, which is how test code gets excluded from a
+production build. It is not required to run a GameTest, and it is useful even
+if you never write one. See `docs/bedrock-regolith-notes.md`.
+
 ## Two blockers before any test can run
 
 1. **Every test needs a `.mcstructure`**, and those can only be produced in
