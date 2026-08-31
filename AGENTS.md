@@ -94,7 +94,6 @@ on the VS Code extension host.
 | npm | 10+ | same |
 | Go | recent | only if building Regolith from source; prebuilt binaries exist |
 | Java | 11+ | required by jsonte (JSON Templating Engine) |
-| cmcc | any | **paid, licensed** — only if using the `command_lang` filter (see section 4) |
 | git | any | Regolith's `install` command shells out to git |
 | Python 3 | optional | writing custom Regolith filters |
 
@@ -263,7 +262,6 @@ regolith config resolvers --append github.com/bedrock-core/regolith-filters/reso
 
 ```bash
 regolith install github.com/MCDevKit/regolith-library/jsonte --profile=default
-regolith install github.com/MCDevKit/regolith-library/command_lang --profile=default
 ```
 
 - **jsonte** - JSON templating with its own query language. Source files use
@@ -334,36 +332,9 @@ Bedrock semantics, never tool syntax.
 
 ### command_lang requires `cmcc`, which is a paid product
 
-This is the one prerequisite that will stop a build cold, and neither the
-filter nor the MCDevKit tutorial says so. The filter is a thin
-`runWith: "shell"` wrapper:
+**Decision for this project: CommandLang is not used.**
 
-```json
-{ "command": "cmcc", "arguments": ["regolith", "--bp-dir", "./BP", ...] }
-```
-
-`regolith install` fetches that wrapper but **does not install `cmcc`**.
-Regolith's own docs only promise to install *language* dependencies, not
-external binaries a filter shells out to. Without `cmcc` on PATH the filter
-fails and takes the whole profile down:
-
-```
-[ERROR] [command_lang] cmcc : The term 'cmcc' is not recognized...
-[+]: Failed to run profile ""
-```
-
-`cmcc` is **not open source**. The MCDevKit GitHub org publishes only
-`cmcc-docs`; there is no compiler repo and no GitHub release to download.
-It is distributed through the client panel at <https://mcdevkit.com>, needs an
-active subscription, must be put on PATH by hand, and is then activated with
-`cmcc activate <license key>`. See the MCDevKit getting-started guide.
-
-**Decision for this project: CommandLang is not used.** `command_lang` stays in
-`filterDefinitions` (harmless, keeps the option open) but is absent from every
-profile. Do not add it back before installing and activating `cmcc` - it breaks
-`regolith run`, and therefore every build. It is only needed if you author
-`.mcc` sources; `packs/data/command_lang/main.mcc` is filter data seeded from
-the cache, not authored source.
+### jsonte
 
 Standalone jsonte CLI is also useful for the agent to test expansion in
 isolation: `jsonte eval <expr>` prints a result to console without a full
@@ -582,7 +553,7 @@ For a fresh machine, prove each layer separately: `mct --version`,
 1. Node 22+, npm 10+, Java 11+, Go, git
 2. `npm i -g @minecraft/creator-tools` → `npx mct eula`
 3. Regolith binary
-4. `regolith install` std-lib filters + jsonte + command_lang
+4. `regolith install` std-lib filters + jsonte
 5. VS Code + Blockception extension; clone schemas repo
 6. [Blockbench](https://www.blockbench.net/)
 7. [bridge.](https://bridge-core.app) (optional, inspector role)
@@ -680,7 +651,7 @@ my-addon/
 │   │   ├── modules/            # .modl - jsonte $module definitions
 │   │   ├── blocks/
 │   │   ├── items/
-│   │   ├── functions/          # .mcfunction, or .mcc for command_lang
+│   │   ├── functions/          # .mcfunction
 │   │   └── scripts/            # Script API TypeScript
 │   ├── RP/                     # resource pack
 │   │   ├── manifest.json
@@ -690,7 +661,6 @@ my-addon/
 │   │   └── textures/           # .png source art (HUMAN ONLY)
 │   └── data/                   # regolith filter data (dataPath)
 │       ├── jsonte/             # data.json - inputs consumed by templates
-│       ├── command_lang/
 │       └── bump_manifest/
 │
 ├── scripts/
@@ -711,7 +681,7 @@ my-addon/
 ```
 
 Template and CommandLang sources live **inside** `packs/`, alongside the JSON
-they expand into — jsonte and command_lang discover `.templ` and `.mcc` by
+they expand into — jsonte discovers `.templ` by
 scanning the temp copy of the packs. There is no separate templates directory.
 
 `packs/BP/modules/` is a *requirement*, not a preference: the jsonte filter
@@ -907,7 +877,6 @@ regolith install jsonte --profile=default
 regolith install texture_list --profile=default
 regolith install name_ninja --profile=default
 regolith install bump_manifest          # build profile only
-# regolith install command_lang --profile=default   # requires paid cmcc, see section 4
 ```
 
 **Always pass `--profile=default`.** Without it, `regolith install` populates

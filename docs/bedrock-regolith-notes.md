@@ -33,7 +33,6 @@ direction.
   `bump_manifest`; `default` and `ci` differ only by export target.
 - `.regolith/` is gitignored, so CI needs `regolith install-all` before running
   anything - the filter cache does not exist on a fresh checkout.
-- `command_lang` needs `cmcc`, a paid product. Not used here.
 - `regolith run <profile>` selects a profile; bare `regolith run` uses
   `default`.
 - The `local` export target writes into `build/` **inside the project**, which

@@ -35,18 +35,11 @@ provides, and giving up the export-target mechanism.
 
 ## `command_lang` is installed but not used
 
-**Decided.** The filter is a thin wrapper that shells out to `cmcc`, which
-`regolith install` does not provide. `cmcc` is a **paid product** — the
-MCDevKit GitHub org publishes only `cmcc-docs`, no compiler repo, and the
-official guide says to download it from a client panel and run
-`cmcc activate <license key>` against an active subscription.
+**Decided.** `cmcc` is a **paid product** — for templating we will just use
+`jsonte` for now.
 
-Without it the filter fails and takes the whole profile down. It stays in
-`filterDefinitions` (harmless, keeps the option open) and is absent from every
-profile.
-
-**Revisit if:** someone buys a licence, or there are real `.mcc` sources to
-compile. `jsonte` covers templating and is free and self-contained.
+**Revisit if:** free version becomes available. `jsonte` covers templating
+and is free and self-contained.
 
 ---
 

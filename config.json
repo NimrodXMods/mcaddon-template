@@ -13,10 +13,6 @@
         "url": "github.com/Bedrock-OSS/regolith-filters",
         "version": "1.1.1"
       },
-      "command_lang": {
-        "url": "github.com/MCDevKit/regolith-library",
-        "version": "1.0.0"
-      },
       "jsonte": {
         "url": "github.com/MCDevKit/regolith-library",
         "version": "2.16.0"
@@ -48,9 +44,7 @@
           {
             "filter": "name_ninja",
             "settings": {
-              "languages": [
-                "en_US.lang"
-              ],
+              "languages": ["en_US.lang"],
               "overwrite": true,
               "sort": true,
               "entities": {
@@ -85,9 +79,7 @@
           {
             "filter": "name_ninja",
             "settings": {
-              "languages": [
-                "en_US.lang"
-              ],
+              "languages": ["en_US.lang"],
               "overwrite": true,
               "sort": true,
               "entities": {
@@ -122,9 +114,7 @@
           {
             "filter": "name_ninja",
             "settings": {
-              "languages": [
-                "en_US.lang"
-              ],
+              "languages": ["en_US.lang"],
               "overwrite": true,
               "sort": true,
               "entities": {
