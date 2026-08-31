@@ -12,6 +12,42 @@ could be guessed from the schema does not need writing down.
 
 Item components, the icon/texture contract, and recipes.
 
+## How items differ from entities
+
+Verified against `../mcbe-schemas/source/behavior/` on 2026-08-31.
+
+**Items are flat.** The item format has exactly two top-level keys:
+
+```
+entity   description, components, component_groups, events, upgrades
+block    description, components, permutations
+item     description, components
+```
+
+No `component_groups`, no `events`, and - unlike blocks - no `permutations`
+either. Items are the simplest of the three: **there is no runtime state model
+at all.** Nothing is added or removed while the game runs, nothing is
+conditionally evaluated, nothing is triggered.
+
+An item component is a static property declaration, evaluated once. That is
+worth internalising, because it reframes the icon failure recorded above: an
+invisible item is a **shape** error, not a state error. There is no state for
+the item to be in, so "it must be in the wrong state" is never the
+explanation. Check the component shape against the schema.
+
+The whole `entity -> components -> trigger -> event -> actions` chain in
+`docs/bedrock-entity-notes.md` is entity-only. Do not go looking for an item
+equivalent; there is not one.
+
+**Names recur across types with different schemas.** An item component and an
+entity component may share a `minecraft:` name and mean different things. Read
+`../mcbe-schemas/behavior/items/` - the icon lesson above was exactly this
+mistake.
+
+One thing that *is* shared with entities and blocks: components are silently
+dropped when `format_version` predates them, per-component at parse time, and
+`mct validate` reports nothing. Assume it applies here too.
+
 ## Confirmed lessons
 
 - **`minecraft:icon` is either a bare string or

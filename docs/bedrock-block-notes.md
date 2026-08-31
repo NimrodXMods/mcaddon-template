@@ -13,6 +13,56 @@ could be guessed from the schema does not need writing down.
 Block states and permutations, geometry and culling, and the
 `blocks.json` / `terrain_texture.json` / `textures/` three-way path contract.
 
+## How blocks differ from entities
+
+Verified against `../mcbe-schemas/source/behavior/` on 2026-08-31. The word
+"component" is shared with entities; almost nothing else is.
+
+Top-level keys, side by side:
+
+```
+entity   description, components, component_groups, events, upgrades
+block    description, components, permutations
+item     description, components
+```
+
+**Blocks have no `component_groups` and no `events`.** The whole
+entity machinery documented in `docs/bedrock-entity-notes.md` - triggers
+naming events, events adding and removing groups - does not exist here. There
+is no `events.json` under `blocks/format/`, only under `entities/format/`.
+
+What blocks have instead is **permutations**. Each entry is
+`{condition, components}`, where `condition` is a Molang expression. The
+schema states a real limit on it:
+
+> "For permutation conditions you are limited to using one Molang query:
+> `query.block_state()`"
+
+The two models are opposites in kind, which is the part worth holding onto:
+
+| | Entity | Block |
+| --- | --- | --- |
+| Mechanism | `component_groups` + `events` | `permutations` |
+| Style | **imperative** - an event explicitly adds/removes groups | **declarative** - conditions are evaluated against current states |
+| What changes it | a trigger fires an event | you change a block **state** |
+| Persistence | the active set persists until an event changes it | re-derived from state; nothing is "held" |
+
+So the failure modes invert. The entity gotcha is forgetting to `remove` a
+sibling group in one transition. The block equivalents are a permutation whose
+condition never matches, or two that match at once. Different bug, equally
+silent - `mct validate` sees neither.
+
+**Component names recur across types with different meanings.**
+`minecraft:loot`, `minecraft:collision_box` and `minecraft:display_name` all
+exist for blocks and overlap entity names, with different schemas behind them.
+Read `../mcbe-schemas/behavior/blocks/` for blocks; an entity page is not a
+substitute.
+
+One thing that *is* shared: a component is silently dropped if
+`format_version` predates it, per-component and at parse time, with zero
+errors from `mct validate`. That was confirmed in game for entities and is not
+entity-specific - assume it applies here.
+
 ## Confirmed lessons
 
 - `minecraft:geometry: "minecraft:geometry.full_block"` is the no-custom-model
