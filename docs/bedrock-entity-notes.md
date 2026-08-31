@@ -26,6 +26,167 @@ has converged.
 Component groups and events as a state chart. Spawn rules. The BP/RP split
 for a single entity.
 
+## The general pattern
+
+Read this before the lessons below; everything else assumes it.
+
+```
+entity
+  components              always active
+  component_groups        named sets of components, added/removed at runtime
+    component
+      trigger(s)          "when <condition> fire <event>"
+        -> event
+             action(s)    what actually changes: add/remove groups, and more
+```
+
+Four levels, and the two easy mistakes are collapsing the middle two:
+
+- A **trigger** is the `{condition..., "event": "...", "target": "self"}`
+  object. It *names* an event. It changes nothing itself.
+- An **event** is the named entry in the entity's `events` block. Its
+  **actions** are what mutate the entity.
+
+Worked example, from `stalker`:
+
+```json
+"minecraft:environment_sensor": {                      // component
+  "triggers": [{                                       // trigger
+    "event": "addontemplate:become_aggro",
+    "target": "self",
+    "filters": { "test": "distance_to_nearest_player",
+                 "operator": "<=", "value": 4 }
+  }]
+},
+
+"addontemplate:become_aggro": {                        // event
+  "remove": { "component_groups": ["calm"] },          // actions
+  "add":    { "component_groups": ["aggro"] }
+}
+```
+
+`target` is worth noting: it is `self` in everything here, but it does not
+have to be - an event can be fired on another entity.
+
+**The condition is not spelled the same way everywhere.** `environment_sensor`
+uses a `filters` block; `damage_sensor` uses `cause` / `deals_damage` with the
+event nested under `on_damage`. Same when/then structure, different shape per
+component. Read the schema for the component in hand rather than generalising.
+
+### Event actions
+
+Actions are the verbs an event may perform. Two are structural rather than
+effectful, and are the reason an event is not just a flat list:
+
+- **`sequence`** - executes a list of actions in order. Each entry is itself a
+  full action set, so it can carry its own `filters`; this is how one event
+  branches on conditions.
+- **`randomize`** - picks exactly *one* entry from a list to execute, by
+  `weight` (default 1.0). Weights are relative: 4.0 against 8.0 gives 33% and
+  67%.
+
+The rest, one line each:
+
+| Action | Does |
+| --- | --- |
+| `add` | Adds component groups to this entity. |
+| `remove` | Removes component groups from this entity. |
+| `trigger` | Fires another entity event - this is how events chain. |
+| `set_property` | Sets an entity property value. |
+| `queue_command` | Queues a slash command, or an array of them, to run at end of tick. |
+| `play_sound` | Plays a sound as part of the response. |
+| `emit_particle` | Emits a particle. |
+| `emit_vibration` | Emits a vibration with this entity as the source. |
+| `reset_target` | Clears the entity's current target. |
+| `drop_item` | Drops an item. |
+| `first_valid` | Executes the first entry whose filters pass. |
+| `set_home_position` | Sets the entity's home position. |
+| `execute_event_on_home_block` | Fires an event on the entity's home block. |
+| `stop_movement` | Stops movement; `stop_horizontal_movement` and `stop_vertical_movement` restrict it to one axis. |
+| `unleash` | Releases a leash; `unleash_self` and `unleash_others` pick which side. |
+
+**Do not trust the docs page for the key names.** The Event Actions page
+(<https://learn.microsoft.com/en-us/minecraft/creator/reference/content/entityreference/examples/eventactions>)
+calls them `add_component_group`, `remove_component_group`, `sequence_node`
+and `randomize_node`. The actual JSON keys are `add`, `remove`, `sequence`,
+`randomize` - which is what `../mcbe-schemas/` defines and what the working
+entities in this project use. That page also omits `first_valid`, `drop_item`,
+`set_home_position`, `execute_event_on_home_block`, and the `stop_movement` /
+`unleash` families entirely, lists `set_property` twice under two names, and
+describes `trigger` as firing events "when hit" - which is boilerplate leaked
+from a component page, not a property of `trigger`. It is marked
+AI-assisted. Table above reconciled against the schema on 2026-08-31.
+
+### Component groups are NOT mutually exclusive
+
+An entity holds a **set** of active component groups. The set may hold several
+at once, and may be empty - which it is on spawn, before
+`minecraft:entity_spawned` fires, when only base components exist.
+
+Nothing in the engine enforces one-at-a-time. Exclusivity, where this project
+has it, is **authored**: every event pairs its `add` with an explicit `remove`.
+From `stalker`:
+
+```
+minecraft:entity_spawned    -> add:    [calm]
+addontemplate:become_aggro  -> remove: [calm]         add: [aggro]
+addontemplate:calm_down     -> remove: [aggro]        add: [calm]
+addontemplate:flee          -> remove: [calm, aggro]  add: [fleeing]
+addontemplate:stop_fleeing  -> remove: [fleeing]      add: [calm]
+```
+
+`flee` names both `calm` and `aggro` because it can be reached from either.
+The engine will not clear them for it.
+
+**The gotcha: adding a state means editing every other event's `remove` list.**
+Miss one and two states' components are live simultaneously - navigation from
+one, attack goals from another - which reads as bizarre behaviour rather than
+a missing line. Nothing warns you: not the engine, not `mct validate`. Same
+silent-failure family as a component group no event ever adds.
+
+A `remove` naming an absent group is a **silent no-op**, so over-removing is
+safe and cheap. Prefer listing every sibling state in every transition to
+reasoning about which are reachable.
+
+### Built-in events, and components that are only a trigger
+
+Two things break the "component -> trigger -> event" chain, in opposite
+directions.
+
+**Built-in events fire with no trigger at all.** The engine calls them from
+internal code. The schema defines exactly four:
+
+```
+minecraft:entity_born
+minecraft:entity_spawned
+minecraft:entity_transformed
+minecraft:on_prime
+```
+
+Every other event in an entity is fired by a trigger someone wrote.
+`minecraft:entity_spawned` is confirmed to fire for `/summon` here.
+
+**"Built-in triggers" are really components.** `minecraft:on_death`,
+`minecraft:on_hurt`, `minecraft:on_hurt_by_player` and friends live in the
+components schema and go in the `components` block like anything else. What
+makes them feel different is that the component's *entire body* is a trigger,
+not one property among several:
+
+```json
+{ "title": "On Death",
+  "description": "Adds a trigger to call on this entity's death.",
+  "$ref": "../types/trigger.json" }
+```
+
+Compare `environment_sensor`, which is a real component with a `triggers`
+array among its data. The official docs file these under a separate "Triggers"
+category, which is where the impression of a third kind of object comes from.
+
+**Naming will not tell you which is which.** `minecraft:on_prime` is a
+built-in *event*; `minecraft:on_death` is a *component*. Same `on_*` prefix,
+opposite sides of the model. Check which side of the components/events split
+any `minecraft:on_*` name falls on before using it.
+
 ## Confirmed lessons
 
 - A working entity is very small. The one here is `identifier`,
@@ -70,10 +231,15 @@ component does not exist.
 
 ### Entities are state charts - confirmed in game
 
-Component groups are **mutually exclusive states**; events are the only
-transitions. A group that no event adds is dead code, and nothing warns you -
-not the engine, not `mct validate`. This was the project's most-repeated
-inherited claim; `addontemplate:stalker` confirmed it in game on 2026-08-30.
+Component groups behave as states and events are the only transitions. A
+group that no event adds is dead code, and nothing warns you - not the engine,
+not `mct validate`. This was the project's most-repeated inherited claim;
+`addontemplate:stalker` confirmed the state-chart behaviour in game on
+2026-08-30.
+
+Read "state" here as an authored convention, not an engine rule - the groups
+are exclusive because every event explicitly removes its siblings. See
+"Component groups are NOT mutually exclusive" above before adding a state.
 
 The decisive observation was summoning the mob **directly on top of the
 player**, which made it attack instantly. That is provable by elimination:
@@ -91,8 +257,9 @@ Two further results from the same session:
 
 - After the player died and respawned at range, the mob **went back to
   ignoring them**. A mob still holding `aggro` would have targeted from up to
-  `within_radius` (12), so `aggro` was genuinely removed - groups are
-  exclusive, not additive.
+  `within_radius` (12), so `aggro` was genuinely removed. Note what this
+  proves: that `become_aggro`'s explicit `remove` executed, **not** that the
+  engine enforces exclusivity. It does not.
 - Approaching again re-aggroed it. Transitions fire **repeatedly in both
   directions**, not once.
 
