@@ -33,15 +33,32 @@ provides, and giving up the export-target mechanism.
 
 ---
 
-## `command_lang` is not used, and no longer installed
+## `command_lang` is not used, and is not referenced
 
-**Decided.** `cmcc` is a **paid product** — for templating we just use
-`jsonte`. The filter definition has since been removed from `config.json`
-entirely rather than left declared-but-unused, so the toolchain no longer
-implies a dependency the project cannot exercise.
+**Decided.** Removed outright. `command_lang` is a thin wrapper that shells
+out to `cmcc`, a **commercially licensed product**: not open source, no
+compiler repo, distributed through the mcdevkit.com client panel against an
+active subscription, and activated with `cmcc activate <license key>`.
+`regolith install` fetches the wrapper but never the binary, so without a
+licence the filter fails and takes the whole profile down.
 
-**Revisit if:** free version becomes available. `jsonte` covers templating
-and is free and self-contained.
+Originally the entry was left parked in `filterDefinitions` on the grounds
+that it was harmless and kept the option open. That was reversed: this
+project takes no dependency on commercial software, and a config entry
+pointing at one is an invitation to re-add it. The `filterDefinitions` entry,
+the seeded `packs/data/command_lang/main.mcc` stub, and the surrounding prose
+were all removed.
+
+Note nothing commercially licensed was ever committed here — `cmcc` is never
+vendored, and what was present was the open-source wrapper's cached
+`filter.json` plus an empty generated stub. The removal is about not
+*referencing* a paid dependency, not about licence contamination.
+
+Templating is covered by `jsonte`, which is free and self-contained.
+
+**Revisit if:** `cmcc` becomes freely available. Re-adding it means
+reinstating the `filterDefinitions` entry *and* wiring it into a profile;
+until `cmcc` is on PATH and activated, doing so breaks every build.
 
 ---
 

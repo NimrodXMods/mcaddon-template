@@ -26,9 +26,8 @@ means swapping it later costs one skill, not all of them.
 Checked 2026-08-30. Worth knowing before treating it as authoritative:
 
 - It is **not** in the Bedrock-OSS standard library. That repo holds twelve
-  filters and jsonte is not one of them; three of this project's five filters
-  (`bump_manifest`, `name_ninja`, `texture_list`) are, and jsonte and
-  `command_lang` are not.
+  filters and jsonte is not one of them; three of this project's four filters
+  (`bump_manifest`, `name_ninja`, `texture_list`) are, and jsonte is not.
 - Searching the entire `Bedrock-OSS/regolith` repo for "jsonte" returns **zero**
   hits. There is no official endorsement; the docs' only install example is
   `regolith install name_ninja`.

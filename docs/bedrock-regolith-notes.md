@@ -46,6 +46,83 @@ direction.
 - Regolith names the export folder from `config.json`'s `name`, so a
   placeholder name ships packs called "Project name_bp" into `com.mojang`.
 
+### Export targets are hardcoded in the binary
+
+Verified 2026-08-30 on regolith 1.8.0. `"target"` takes a **keyword**, not a
+path, and the path it maps to is compiled into regolith - it is not in
+`config.json`, not in `%LOCALAPPDATA%\regolith\user_config.json`, and not in
+`regolith config --full` (which prints defaults too, and lists no export-path
+key of any kind).
+
+- `development` - platform detection finds the Minecraft install. Here it
+  resolves to
+  `%APPDATA%\Minecraft Bedrock\Users\Shared\games\com.mojang\development_*_packs`.
+  The legacy UWP tree
+  (`%LOCALAPPDATA%\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\...`)
+  is **empty** - do not go looking there.
+- `local` - `./build/<name>_bp` and `./build/<name>_rp`, project-relative.
+  Confirmed by running the `ci` profile into a nonexistent `build/`:
+  `Exporting behavior pack to "build/AddOnTemplate_bp/"`.
+
+The consequence: `development` is **non-portable** - it resolves to whatever
+that machine's install is, and to nothing usable without Minecraft. That is
+the whole reason `ci` and `build` exist. To name a directory yourself the
+escape hatch is not a config key but a different target: `exact`, with a
+`path`.
+
+### The cache holds filters; `packs/data` holds state
+
+Three distinct things, easily conflated:
+
+- `.regolith/cache/filters/<name>/` - the downloaded filter **code**, pinned to
+  the `version` in `filterDefinitions` (`jsonte.exe`, `bump_manifest.py`, ...).
+  The `data/` folder inside each is **seed** data, a template copied out to
+  `dataPath` on install - a source to copy from, not live state.
+- `packs/data/<name>/` - the real state, and git-tracked so it survives a cache
+  wipe. Mixes data you author for reuse (`jsonte/data.json`) with state filters
+  write back (`bump_manifest/version.json`).
+- `.regolith/tmp/` - per-run scratch, rebuilt from `packs/` every run.
+
+The one stateful file in the cache is `.regolith/cache/edited_files.json`,
+which lists every file regolith wrote into each export target so the next run
+can delete stale ones instead of orphaning them. Losing it causes the deletion
+safety check failure in the gotcha table.
+
+### Cleaning and reinstalling
+
+- `regolith clean` is the sanctioned way to wipe the cache; `regolith
+  install-all` restores it from `filterDefinitions`.
+- **`install-all` prunes.** It installs only what `filterDefinitions` lists, so
+  cache directories for removed filters disappear. This is how the stale
+  `command_lang` and `modular_mc` directories were cleared.
+- Regolith never prunes the cache on its own - removing a filter from
+  `config.json` leaves its cache directory behind indefinitely.
+- `regolith clean` prints a path under
+  `%LOCALAPPDATA%\regolith\project-cache\<hash>` even with
+  `use_project_app_data_storage: false`. Not investigated.
+
+### Resolvers are an install-time index only
+
+`user_config.json` lists resolvers; regolith keeps each as a **full git clone**
+at `%LOCALAPPDATA%\regolith\resolver-cache\<md5-of-url>\`, refreshed subject
+to `resolver_cache_update_cooldown` (5m default).
+
+A `resolver.json` is just a name -> repo-URL phone book:
+
+```json
+{ "filters": { "name_ninja": { "url": "github.com/Bedrock-OSS/regolith-filters" },
+               "jsonte":     { "url": "github.com/MCDevKit/regolith-library" } } }
+```
+
+Note `jsonte` resolves out to a different org than the resolver listing it -
+the resolver is an index, not a host. The list is **ordered, first match
+wins**: `[0]` is the user-added `bedrock-core` resolver, `[1]` regolith's
+built-in `Bedrock-OSS` default.
+
+This only matters for `regolith install <bare-name>`, which expands the name
+and writes a pinned `url` + `version` into `filterDefinitions`. **Builds never
+consult a resolver** - a fresh clone builds from `filterDefinitions` alone.
+
 ## Inherited from research - NOT verified here
 
 Carried over from the original AGENTS.md research pass. Plausible, widely

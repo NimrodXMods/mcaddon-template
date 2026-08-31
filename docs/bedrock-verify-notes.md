@@ -26,11 +26,17 @@ create:
   >> Path: blocks.json
 ```
 
+The underlying cause is **not** the stale directory itself: it is
+`.regolith/cache/edited_files.json`, regolith's record of what it wrote into
+each export target. Without that record regolith will not overwrite an export
+it can no longer prove it owns. `regolith clean` wipes it, so a `local`-target
+`build/` surviving a clean becomes untouchable. Full detail in
+`docs/bedrock-regolith-notes.md`.
+
 `scripts/verify.sh` originally ran `regolith run` first and `rm -rf build out`
-afterwards, so the cleanup only happened when a run completed. Any interrupted
-run - or a plain `regolith run ci` typed by hand - left `build/` behind and
-failed the **next** verify with the message above, which reads like content
-corruption and is nothing of the sort.
+afterwards, so the cleanup only happened when a run *completed*. That left the
+gate dependent on whatever ran before it, and it failed with the message above
+- which reads like content corruption and is nothing of the sort.
 
 The gate now clears the target **before** running as well, so it does not
 depend on whatever ran before it. Keep both cleanups: the one before guarantees

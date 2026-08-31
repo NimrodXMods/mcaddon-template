@@ -332,7 +332,11 @@ Bedrock semantics, never tool syntax.
 
 ### command_lang requires `cmcc`, which is a paid product
 
-**Decision for this project: CommandLang is not used.**
+**Decision for this project: CommandLang is not used**, and is not referenced
+in `config.json` at all. `cmcc` is commercially licensed and `regolith
+install` never fetches it, so wiring the filter into a profile without a
+licence breaks every build. Rationale and what was removed:
+`docs/decisions.md`. Templating is `jsonte`.
 
 ### jsonte
 
@@ -569,11 +573,13 @@ For a fresh machine, prove each layer separately: `mct --version`,
 
 ```
 packs/BP/, packs/RP/  -- SOURCE OF TRUTH; humans and agents write here (tracked)
-packs/data/           -- regolith filter data (dataPath)               (tracked)
+packs/data/           -- filter data AND filter-written state (dataPath) (tracked)
+.regolith/cache/      -- downloaded filter code + edited_files.json    (ignored)
 .regolith/tmp/        -- scratch copy filters actually run against     (ignored)
 com.mojang/           -- real output; outside the repo entirely
-build/                -- packaged .mcaddon artifacts                   (ignored)
-reports/              -- mct validator output                          (ignored)
+build/                -- `local`-target export trees, and the packaged
+                         .mcaddon from `mct exportaddon`               (ignored)
+reports/              -- mct validator output, wiped each run          (ignored)
 ```
 
 **Regolith is not a `source/` -> `packs/` compiler.** `packs/BP` and `packs/RP`
@@ -1072,6 +1078,8 @@ For a GameTest world: `mct exportworld -i . -o build`.
 | Two add-ons conflict on load | Duplicate UUIDs from an un-randomized template. |
 | Edits vanish | Something hand-edited the `com.mojang` export target; the next `regolith run` overwrote it. Edit `packs/` instead. |
 | Filter output missing from `packs/` | Expected, not a bug. Filters run against `.regolith/tmp`; generated files appear only in the export target. |
+| `regolith run` fails with `Couldn't read filter data from path` | The filter cache is gone - fresh clone, or someone ran `regolith clean`. **`regolith run` does not auto-install**; it fails and tells you to run `regolith install-all`. Verified 2026-08-30 by cleaning and re-running. `.regolith/` is gitignored, so CI hits this on every checkout. |
+| `Deletion safety check for ... failed. File is not on the list of files created by Regolith` | `regolith clean` wiped `.regolith/cache/edited_files.json`, which is the record of what regolith wrote into each export target. Without it regolith refuses to overwrite an export it can no longer prove it owns. Bites when a `local`-target `build/` survives a clean. **Fix: delete the export directory** (`build/`, or the `com.mojang` `development_*_packs` folder) and re-run. `scripts/verify.sh` self-heals because it now removes `build`/`out` **before** every run as well as after - removing only afterwards was not enough, since a run that never reached the cleanup left the export behind for the next one to trip over. |
 | Extension flags valid code | Blockception avoids experimental features by design. mct is the authority. |
 | CADDONREQ102/104 on a **loot table** | The Cooperative Add-On folder rule is not textures-only. `loot_tables/entities/foo.json` - **vanilla's own layout** - fails, because `entities` is a common term. Use `loot_tables/<creatorshortname>/<mygamename>/<file>.json`. Note `spawn_rules/` is *not* subject to this and passes flat, so the rule is per-folder: check rather than assume. |
 | Texture validation errors CADDONREQ102/104/108 | Cooperative Add-On rules: textures may not sit loose in common-named folders. Required layout is `textures/<creatorshortname>/<gamename>/blocks&#124;items&#124;entity/*.png` (one of those three), and `<creatorshortname>` may contain exactly **one** subfolder (plus optionally `common`). See the template under `packs/RP/textures/addontemplate/template/`. |
