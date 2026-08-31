@@ -33,10 +33,12 @@ provides, and giving up the export-target mechanism.
 
 ---
 
-## `command_lang` is installed but not used
+## `command_lang` is not used, and no longer installed
 
-**Decided.** `cmcc` is a **paid product** — for templating we will just use
-`jsonte` for now.
+**Decided.** `cmcc` is a **paid product** — for templating we just use
+`jsonte`. The filter definition has since been removed from `config.json`
+entirely rather than left declared-but-unused, so the toolchain no longer
+implies a dependency the project cannot exercise.
 
 **Revisit if:** free version becomes available. `jsonte` covers templating
 and is free and self-contained.
@@ -120,8 +122,11 @@ the clone inside, scans covered 1221 files instead of 8 and emitted spurious
 *definitions*. Those errors never reach `errorCount`, so the motivation is
 report noise, not a false failure.
 
-Note `mcbe-schemas/bedrock-samples` is an **uninitialised submodule** (empty).
-There are no vanilla reference assets on disk.
+`mcbe-schemas/bedrock-samples` **must be initialised** (`git submodule update
+--init --depth 1 bedrock-samples`); it holds the vanilla reference assets this
+project reads for real geometry identifiers, texture paths and component
+shapes. Initialising it makes the sibling-clone decision *more* important, not
+less - it adds the entire vanilla resource and behaviour pack to that tree.
 
 ---
 
@@ -481,40 +486,7 @@ replacing the templating layer costs one skill rather than all of them.
   `@minecraft/server-gametest` dependency changes what the pack needs to load,
   so it is deliberate. See `docs/gametest-notes.md`.
 - **Whether the template ships a custom model.** Currently vanilla-only.
-- **Script module versions are stale and being silently promoted.** The BP
-  manifest declares `@minecraft/server` **2.0.0** and `@minecraft/server-ui`
-  **2.0.0**; at load the engine reports:
-
-  ```
-  [Scripting][verbose]-Plugin [AddOnTemplate] - promoted [@minecraft/server]
-      from [2.0.0] to [2.9.0] requested by [AddOnTemplate - 0.0.1]
-  [Scripting][verbose]-... promoted [@minecraft/server-ui] from [2.0.0] to [2.1.0]
-  ```
-
-  Same staleness class as the `format_version` lag, and the "latest stable"
-  policy says these should declare what they actually receive. Deliberately
-  **not** changed yet, for three reasons: today's `format_version` bump broke
-  both entities outright, so version bumps here have earned caution; it is
-  unconfirmed whether 2.9.0 is stable rather than beta, and the policy forbids
-  beta; and `mct exportaddon` is known to rewrite `module_name` dependency
-  versions as arrays (`[2,9,0]`) where a semver **string** is correct - see the
-  gotcha table - so this file is already fragile.
-
-  Low urgency: `scripts/main.js` uses only `world.sendMessage` and
-  `system.run`, which are stable across 2.x, so the promotion changes nothing
-  functionally today. It matters when the script starts using newer APIs.
-
-- **Whether the bumped entities still *behave*.** The bump (BP entities
-  `1.20.80` → `1.26.40`, item → `1.26.30`, block → `1.21.110`) initially
-  **broke both entities outright** - `minecraft:pushable` does not exist at
-  1.26.40 and the whole entity failed to parse. Fixed by splitting it into
-  `minecraft:pushable_by_entity` / `pushable_by_block`, and
-  `/summon addontemplate:stalker` now works, so the entities **load**.
-
-  Not yet confirmed: that wandering, proximity aggro, flee-on-damage and loot
-  all still work at 1.26.40. Loading is not behaving, and the schema changed
-  under every component, not just `pushable`.
-
-  Note the bump was applied while the spawn-rule question was still open, so if
-  natural spawning starts working now, the cause is ambiguous between the two
-  changes.
+- **Whether the bumped entities still *behave*.** Tracked in
+  `docs/test-backlog.md`. `/summon` proves they load; nothing has confirmed
+  wandering, aggro, flee and loot still work at 1.26.40, and the schema
+  changed under every component, not just `minecraft:pushable`.

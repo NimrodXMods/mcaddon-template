@@ -20,6 +20,14 @@ REPORTS="reports"
 # com.mojang, so CI passes a profile whose export target is "local".
 PROFILE="${1:-}"
 
+# Clear the export target BEFORE running, not only after. Regolith refuses to
+# overwrite files in the target it did not create ("Deletion safety check ...
+# File is not on the list of files created by Regolith"), so a build/ left
+# behind by an interrupted run - or by a manual `regolith run ci` - fails the
+# NEXT verify with an error that looks like content corruption. Cleaning first
+# makes the gate independent of whatever ran before it.
+rm -rf build out
+
 echo "==> regolith run ${PROFILE}"
 regolith run ${PROFILE}
 

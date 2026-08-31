@@ -1,3 +1,8 @@
 {
-    // Here add your global data
+    // Global jsonte scope. Every .templ and .modl under BP/ and RP/ can read
+    // these without declaring them, which is what makes a single list able to
+    // drive files in BOTH packs - the BP variant groups, the RP texture map and
+    // the RP render controller all expand from `drifter_variants` below, so
+    // they cannot drift out of sync.
+    "drifter_variants": ["azure", "amber", "violet", "jade"]
 }

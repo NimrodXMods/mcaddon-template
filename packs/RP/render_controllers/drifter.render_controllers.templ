@@ -1,0 +1,28 @@
+{
+  // First custom render controller in this project.
+  //
+  // The variant selection is one Molang expression: Array.skins[query.variant].
+  // `query.variant` returns the value set by the BP's minecraft:variant
+  // component, and Array.skins is indexed by it - so the ARRAY ORDER HERE MUST
+  // MATCH the order of drifter_variants, which is exactly why both expand from
+  // the same global list rather than being written twice.
+  //
+  // Note the format_version: render controllers are on the 1.8.0 numbering
+  // line, like spawn rules. Not the BP entity's 1.26.40, not the RP client
+  // entity's 1.10.0. Copied from vanilla controller.render.rabbit.
+  "$template": {
+    "format_version": "1.8.0",
+    "render_controllers": {
+      "controller.render.drifter": {
+        "arrays": {
+          "textures": {
+            "Array.skins": "{{drifter_variants.map(v => 'Texture.' + v)}}"
+          }
+        },
+        "geometry": "Geometry.default",
+        "materials": [{ "*": "Material.default" }],
+        "textures": ["Array.skins[query.variant]"]
+      }
+    }
+  }
+}

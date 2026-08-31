@@ -43,9 +43,9 @@ for a single entity.
   generates both correctly from the identifier - prefer that to hand-writing
   `.lang` lines. Re-confirmed for `stalker`: both keys appeared with no
   hand-written `.lang` at all.
-- `format_version` on the BP entity (1.20.80 here) and the RP client entity
-  (1.10.0) are **different numbering lines**. One value does not work for both
-  files.
+- `format_version` runs on **independent numbering lines per file type**, and
+  one value never works across them. Current values here: BP entity `1.26.40`,
+  RP client entity `1.10.0`, spawn rules `1.8.0`, render controllers `1.8.0`.
 
 ### A mob needs more than the minimal entity carries
 
@@ -340,12 +340,12 @@ basis - confirm it first, then move it up.
 
 ## Awaiting playtest
 
-- **The upper bound on the `environment_sensor` cutoff is unestablished.** A
-  second probe at 1.16.0 was built but its behaviour was never separately
-  reported, and both probes have since been deleted. All that is established is
-  `> 1.8.0`. Re-establishing the bound means rebuilding a probe and bisecting
-  versions - cheap to redo (copy `stalker.behavior.templ`, change only
-  `format_version`), and only worth it if the exact cutoff ever matters.
+Tracked in `docs/test-backlog.md`, not here - manual tests are batched and run
+together. Outstanding for entities: the drifter variant chain, a behaviour
+re-check on the stalker after the format_version bump, whether the flee timer
+restarts on a repeat hit, and the `environment_sensor` version cutoff.
+
+Move results back into this file when they land.
 
 ## Open questions
 - Component-group patterns worth templating beyond this one (tamed/wild,

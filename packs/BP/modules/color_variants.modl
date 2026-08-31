@@ -1,0 +1,48 @@
+{
+  // Colour variants: one component group per variant, plus the spawn event
+  // that picks one at random. Both are generated from a single list, so the
+  // group and the event that adds it cannot disagree - the same closed-loop
+  // guarantee proximity_aggro makes, applied N times.
+  //
+  // Requires from the extending file's $scope:
+  //   variants - array of variant names, in order. The ARRAY INDEX becomes the
+  //              minecraft:variant value, which is what the RP render
+  //              controller indexes with query.variant. Reordering this list
+  //              silently recolours every already-spawned mob.
+  //
+  // The `has_component != minecraft:variant` guard copies vanilla (rabbit):
+  // without it, any later re-fire of entity_spawned would re-roll the variant.
+  "$module": "color_variants",
+  "$template": {
+    "minecraft:entity": {
+      "component_groups": {
+        "{{#variants as v}}": {
+          "variant_{{v}}": {
+            "minecraft:variant": { "value": "{{index}}" }
+          }
+        }
+      },
+      "events": {
+        "minecraft:entity_spawned": {
+          "sequence": [
+            {
+              "filters": {
+                "test": "has_component",
+                "operator": "!=",
+                "value": "minecraft:variant"
+              },
+              "randomize": [
+                {
+                  "{{#variants as v}}": {
+                    "weight": 1,
+                    "add": { "component_groups": ["variant_{{v}}"] }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

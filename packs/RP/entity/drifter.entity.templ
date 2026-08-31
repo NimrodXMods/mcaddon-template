@@ -1,0 +1,26 @@
+{
+  // First templated RP file in this project. The texture map expands from the
+  // same `drifter_variants` global that drives the BP variant groups, so a
+  // variant can never exist on one side without the other.
+  //
+  // Note the render controller is NOT controller.render.default here - default
+  // resolves Texture.default only, which cannot select per-variant. Anything
+  // with variants needs its own controller.
+  "$template": {
+    "format_version": "1.10.0",
+    "minecraft:client_entity": {
+      "description": {
+        "identifier": "addontemplate:drifter",
+        "materials": { "default": "entity_alphatest" },
+        "textures": {
+          "{{#drifter_variants as v}}": {
+            "{{v}}": "textures/addontemplate/template/entity/drifter_{{v}}"
+          }
+        },
+        "geometry": { "default": "geometry.pig.v3" },
+        "render_controllers": ["controller.render.drifter"],
+        "spawn_egg": { "base_color": "#2f8fbf", "overlay_color": "#bf8f2f" }
+      }
+    }
+  }
+}

@@ -15,6 +15,29 @@ without a clean run.
 
 ## Confirmed lessons
 
+### Clear the export target before running, not only after
+
+Regolith refuses to overwrite a file in the export target that it did not
+create:
+
+```
+[+]: Deletion safety check for resource pack failed.
+[+]: File is not on the list of files created by Regolith.
+  >> Path: blocks.json
+```
+
+`scripts/verify.sh` originally ran `regolith run` first and `rm -rf build out`
+afterwards, so the cleanup only happened when a run completed. Any interrupted
+run - or a plain `regolith run ci` typed by hand - left `build/` behind and
+failed the **next** verify with the message above, which reads like content
+corruption and is nothing of the sort.
+
+The gate now clears the target **before** running as well, so it does not
+depend on whatever ran before it. Keep both cleanups: the one before guarantees
+a clean export, the one after keeps `mct validate` from scanning `build/`
+alongside `packs/` and double-counting everything.
+
+
 ### The gate does not cover `format_version`, and the Content Log does
 
 `mct validate` reported **0 errors** on an entity that could not load in game

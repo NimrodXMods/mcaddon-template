@@ -1,0 +1,65 @@
+{
+  // A passive wandering mob that comes in four colours.
+  //
+  // Deliberately a DIFFERENT shape from the stalker: passive rather than
+  // hostile, and its interesting axis is variants rather than states. Two mobs
+  // of the same shape would not test whether the module pattern generalises.
+  //
+  // `variants` is passed through from the global scope in
+  // packs/data/jsonte/data.json so the RP client entity and render controller
+  // expand from the same list.
+  // NOT extending `wandering`, despite this mob wandering. That module puts
+  // its behaviours inside the `calm` component group, and this mob has no
+  // state machine to create `calm` - nothing would ever add it, so every
+  // behaviour would be dead code that neither the engine nor mct reports.
+  // wandering.modl declares that dependency in its own header; honouring it
+  // means writing the three idle behaviours literally below instead.
+  "$extend": ["color_variants"],
+  "$scope": {
+    "variants": "{{drifter_variants}}"
+  },
+  "$template": {
+    "format_version": "1.26.40",
+    "minecraft:entity": {
+      "description": {
+        "identifier": "addontemplate:drifter",
+        "is_spawnable": true,
+        "is_summonable": true
+      },
+      "components": {
+        "minecraft:health": { "value": 10, "max": 10 },
+        // geometry.pig.v3 on the RP side is 64x32.
+        "minecraft:collision_box": { "height": 0.9, "width": 0.9 },
+        "minecraft:type_family": { "family": ["addontemplate", "drifter", "mob"] },
+        "minecraft:physics": {},
+        "minecraft:pushable_by_entity": {},
+        "minecraft:pushable_by_block": {},
+        "minecraft:movement.basic": {},
+        // Base components, not a group - this mob is stateless, so there is no
+        // per-state movement value like the stalker has.
+        "minecraft:movement": { "value": 0.2 },
+        "minecraft:behavior.random_stroll": {
+          "priority": 6,
+          "speed_multiplier": 1.0,
+          "xz_dist": 10,
+          "y_dist": 7,
+          "interval": 120
+        },
+        "minecraft:behavior.look_at_player": {
+          "priority": 7,
+          "look_distance": 8,
+          "probability": 0.02
+        },
+        "minecraft:behavior.random_look_around": { "priority": 8 },
+        "minecraft:navigation.walk": {
+          "can_path_over_water": false,
+          "avoid_water": true
+        },
+        "minecraft:jump.static": {},
+        "minecraft:behavior.float": { "priority": 0 },
+        "minecraft:despawn": { "despawn_from_distance": {} },
+        "minecraft:loot": { "table": "loot_tables/addontemplate/template/drifter.loot.json" }
+      }
+    }
+  }
+}
