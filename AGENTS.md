@@ -470,6 +470,7 @@ Writing the skill first encodes guesses that read as authority; see
 | `bedrock-jsonte` | `docs/bedrock-jsonte-notes.md` | `.templ` syntax, modules, when to template vs write literal JSON |
 | `bedrock-regolith` | `docs/bedrock-regolith-notes.md` | Filter pipeline, profiles, export targets, source/output direction |
 | `bedrock-worldgen` | `docs/bedrock-worldgen-notes.md` | Custom biomes, features and feature rules; BP-only, and unverified here |
+| `bedrock-packaging` | `docs/bedrock-packaging-notes.md` | Manifest module types per format_version, the .mcpack/.mcaddon/.mctemplate/.mcworld split, world templates vs worldgen |
 | `bedrock-geometry` | `docs/model-authoring-agent.md` | Bone trees, pivots, box UV, the silhouette gate |
 | `bedrock-gametest` | `docs/gametest-notes.md` | GameTest structure, registration, assertions |
 
