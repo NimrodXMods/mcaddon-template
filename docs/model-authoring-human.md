@@ -94,6 +94,34 @@ task with no 3D correspondence to solve.
 Verify by hand: exact menu paths for auto-UV and template export, and whether
 auto-UV repacks all cubes or only the selection.
 
+### Getting a Blockbench model into the pack: `blockbench_convert`
+
+**Not installed here yet - not verified.** Step 6 above leaves you with a
+`.bbmodel`, which the game cannot read. The Bedrock-OSS standard filter
+`blockbench_convert` *"converts blockbench models into `.geometry.json`
+files"*, which makes the `.bbmodel` the tracked source and the `.geo.json` a
+build artifact - the same source/output split the rest of this project already
+follows.
+
+```bash
+regolith install blockbench_convert --profile=default
+```
+
+`--profile=default` matters; see `docs/bedrock-regolith-notes.md`.
+
+Two things to settle before adopting it:
+
+- **`.bbmodel` and `.geo.json` are both in the `deny` list in
+  `.claude/settings.json`, matched by extension.** That is deliberate - agents
+  do not author geometry. Introducing a filter that *generates* `.geo.json`
+  does not conflict with the deny rule (the filter writes into the export
+  target, not `packs/`), but it does mean the generated file must not be
+  committed. Confirm where the output lands before wiring it in.
+- **The one-directional handoff below still applies.** If `blockbench_convert`
+  regenerates geometry from a `.bbmodel` whose cubes changed, painted UVs are
+  invalidated exactly as if an agent had rewritten the file. The filter
+  automates the export step, not the ownership rule.
+
 ### The one-directional handoff
 
 Once a texture is painted, geometry and texture are joined. An agent

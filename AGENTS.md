@@ -469,6 +469,7 @@ Writing the skill first encodes guesses that read as authority; see
 | `bedrock-molang` | `docs/bedrock-molang-notes.md` | Query namespaces, context validity, arrow-operator gotchas |
 | `bedrock-jsonte` | `docs/bedrock-jsonte-notes.md` | `.templ` syntax, modules, when to template vs write literal JSON |
 | `bedrock-regolith` | `docs/bedrock-regolith-notes.md` | Filter pipeline, profiles, export targets, source/output direction |
+| `bedrock-worldgen` | `docs/bedrock-worldgen-notes.md` | Custom biomes, features and feature rules; BP-only, and unverified here |
 | `bedrock-geometry` | `docs/model-authoring-agent.md` | Bone trees, pivots, box UV, the silhouette gate |
 | `bedrock-gametest` | `docs/gametest-notes.md` | GameTest structure, registration, assertions |
 
