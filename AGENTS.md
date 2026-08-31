@@ -332,7 +332,11 @@ Bedrock semantics, never tool syntax.
 
 ### command_lang requires `cmcc`, which is a paid product
 
-**Decision for this project: CommandLang is not used.**
+**Decision for this project: CommandLang is not used**, and is not referenced
+in `config.json` at all. `cmcc` is commercially licensed and `regolith
+install` never fetches it, so wiring the filter into a profile without a
+licence breaks every build. Rationale and what was removed:
+`docs/decisions.md`. Templating is `jsonte`.
 
 ### jsonte
 
