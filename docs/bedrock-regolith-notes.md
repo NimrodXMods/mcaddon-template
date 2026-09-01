@@ -19,7 +19,7 @@ direction.
   `.regolith/tmp`, filters the copy, and exports to the target. It never writes
   back. Do not deny writes to `packs/`.
 - One thing does write into `packs/`, and it is not a filter: `mct
-  exportaddon` rewrites manifest dependency versions incorrectly -
+  exportaddon` normalizes manifest dependency versions to arrays -
   `scripts/deploy.sh` guards it. (It was initially blamed on `bump_manifest`;
   see `docs/decisions.md`.)
 - `regolith install <filter> --profile=default` wires the filter into the

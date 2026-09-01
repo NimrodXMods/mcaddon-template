@@ -101,6 +101,50 @@ for the *source* that does not hold. deploy.sh is unaffected only because it
 snapshots and restores the manifests either way. **Never run `exportaddon` by
 hand without checking `git diff packs/` afterwards.**
 
+### The array form is valid; mct is normalizing
+
+Established 2026-08-31 by reading mct's own source rather than the schemas,
+on the reasoning that mct is published by Mojang while `../mcbe-schemas/` is
+community-maintained and could lag the game.
+
+- `lib/minecraft/IAddonManifest.d.ts` types the dependency as
+  `version: number[] | string` - **both forms are legal to Mojang's tool.**
+- `lib/minecraft/BehaviorManifestDefinition.js`, `setModuleVersion()`,
+  converts a version to an array only when it has no `-` and splits into
+  exactly three parts. Anything with a `-` (that is, `-beta`) stays a string.
+  A deliberate rule, not an accident.
+- `lib/app/Project.js` seeds new projects with string `preferredVersion`s
+  (`"1.17.0-beta"` and similar), which that same rule preserves.
+- Learn's manifest reference agrees both are legal: *"Vector [a, b, c] or
+  SemVer String"*.
+
+**So calling this corruption was wrong.** It is a normalization this project
+did not ask for.
+
+Prefer strings anyway, for three reasons that have nothing to do with
+validity:
+
+1. Learn's `@minecraft/server` module page gives the canonical declaration as
+   `{"module_name": "@minecraft/server", "version": "2.9.0"}` - a string.
+2. **Manifest v3 requires it**: *"In version 3, currently in preview, you must
+   use a string for version."* The array runs against where the platform is
+   heading.
+3. It churns every diff.
+
+Two things that *are* defects:
+
+- The **trailing-newline strip** has no upside.
+- The change detection looks broken: `setModuleVersion` tests
+  `dep.version !== verActual`, which compares arrays **by reference**, so once
+  the value is already `[2, 9, 0]` the test still passes and a change is
+  reported every run. Read from source, **not tested** - `persist()` uses
+  `setObjectContentIfSemanticallyDifferent`, so a second write may not
+  actually occur even though the flag is wrong.
+
+**Still untested in game:** whether Minecraft itself accepts the array form
+for `module_name` dependencies. Both mct and Learn say yes; neither is the
+game. Worth confirming before relying on it.
+
 All four extensions are zips; `.mctemplate` is documented as literally "zip
 everything up, rename the file".
 

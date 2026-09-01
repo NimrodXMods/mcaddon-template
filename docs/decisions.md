@@ -163,11 +163,23 @@ Shell scripts must stay LF everywhere: `bash` fails on a CR in the shebang, and
 `packs/BP/manifest.json` came back corrupted - `"@minecraft/server": "2.0.0"`
 rewritten to `[2, 9, 0]` - and `bump_manifest`, newly added to the `build`
 profile and named like a thing that rewrites manifests, was blamed and
-removed. Isolation later showed the corruption was **`mct exportaddon`**: it
-resolves the latest registry version of each script module dependency and
-writes it back as an array, where `module_name` dependencies take semver
-**strings** (arrays are for pack-UUID dependencies). It also strips the
-trailing newline. `bump_manifest` does not touch dependency versions at all.
+removed. Isolation later showed the rewriter was **`mct exportaddon`**, which
+converts `module_name` dependency versions from a semver string to an array
+and strips the trailing newline. `bump_manifest` does not touch dependency
+versions at all.
+
+**Amended 2026-08-31: this is not corruption.** Reading mct's own source
+settled it - `IAddonDependency` types `version` as `number[] | string`, and
+`setModuleVersion()` deliberately converts stable 3-part versions to arrays
+while preserving anything containing `-` as a string. Both forms are valid;
+mct is normalizing, not breaking the file. The word "corrupted" above is left
+in place because it records what was believed during the mis-attribution, and
+the lesson below is about that.
+
+This project still prefers strings, for reasons unrelated to validity: Learn
+documents `{"module_name": "@minecraft/server", "version": "2.9.0"}` as the
+canonical form, **manifest v3 requires a string**, and the rewrite churns
+every diff. The trailing-newline strip remains a plain defect.
 
 So: `bump_manifest` is back in the `build` profile and release builds
 increment manifest versions, while `scripts/deploy.sh` snapshots and restores
