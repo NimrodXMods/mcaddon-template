@@ -79,6 +79,50 @@ entity-specific - assume it applies here.
   namespaced identifier**, while `terrain_texture.json` is keyed by a short
   texture name. Two key spaces, one line apart.
 
+### Never put `textures` in `blocks.json` for a custom block
+
+Observed in game, 2026-08-31, `ContentLog`:
+
+```
+[Blocks][warning] nimrodx_template:example_block: trying to override the
+Geometry component with blocks.json settings for a custom block. This isn't
+supported. Please remove any legacy texture definition or block shape
+specification for this block.
+```
+
+`blocks.json` is the **legacy** vanilla-block path. A data-driven block gets
+its texture from `minecraft:material_instances` and its shape from
+`minecraft:geometry`, both in the BP. Supplying `textures` (or a shape) in
+`blocks.json` as well sets the two systems against each other, and the game
+resolves it by warning and ignoring one of them.
+
+The template had both: `material_instances` naming `example_block` in the BP
+*and* `"textures": "example_block"` in `packs/RP/blocks.json`. The RP entry was
+redundant even when it was not conflicting - the texture already resolved
+through `terrain_texture.json` from the BP side.
+
+What to keep in `blocks.json` for a custom block:
+
+```json
+{
+  "format_version": [1, 1, 0],
+  "nimrodx_template:example_block": {
+    "sound": "stone"
+  }
+}
+```
+
+`sound` is legitimate there and has no component equivalent, so the file stays
+- it just must not describe appearance. If a custom block needs nothing but
+appearance, it needs no `blocks.json` entry at all.
+
+**The gate cannot catch this.** `mct validate` reports zero errors on the
+conflicting version: it checks file shape, not component semantics, and the
+conflict is only visible to the game. `./scripts/verify.sh` passed throughout.
+The only signal is `ContentLog` at world load - which is the general argument
+for reading it after a content change, not just when something looks broken.
+See `docs/bedrock-verify-notes.md` on the gate's blind spot.
+
 ## Inherited from research - NOT verified here
 
 Carried over from the original AGENTS.md research pass. Plausible, widely
