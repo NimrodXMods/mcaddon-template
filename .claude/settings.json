@@ -42,21 +42,13 @@
       "Bash(npx mct deploytestworld:*)",
 
       "Edit(.regolith/**)",
-      "Write(.regolith/**)",
       "Edit(out/**)",
-      "Write(out/**)",
       "Edit(build/**)",
-      "Write(build/**)",
       "Edit(reports/**)",
-      "Write(reports/**)",
-
 
       "Edit(**/*.geo.json)",
-      "Write(**/*.geo.json)",
       "Edit(**/*.bbmodel)",
-      "Write(**/*.bbmodel)",
-      "Edit(**/*.png)",
-      "Write(**/*.png)"
+      "Edit(**/*.png)"
     ],
     "ask": [
       "Bash(magick:*)",

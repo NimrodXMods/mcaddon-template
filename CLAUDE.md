@@ -35,6 +35,19 @@ MCP enablement in `.claude/settings.local.json` (not committed). The shape:
   (`.regolith/`, `build/`, `reports/`), and `.geo.json` / `.bbmodel` / `.png`
   matched **by extension, not directory**, so `packs/RP/` stays writable.
 
+There is **no `Write(path)` rule form.** File-path permission rules come in
+exactly two shapes, `Read(path)` and `Edit(path)`, and adding a `Write(...)`
+entry produces a settings load error at session start. The settings schema does
+not validate rule names — `permissions.deny` is a plain array of strings — so
+nothing catches the mistake before the error appears.
+
+`Edit(...)` is the write-side rule and it governs the **Write tool as well as
+Edit**, so `Edit(build/**)` already denies both; a parallel `Write(build/**)`
+is redundant, not extra protection. (`Write` *is* valid as a hook matcher,
+e.g. `"matcher": "Write|Edit"` — that is where the shape looks transferable
+and is not.) Do not "restore" `Write(...)` deny entries: they were removed
+deliberately because they broke loading.
+
 Note `packs/**` is deliberately **not** denied — it is source. See `AGENTS.md`,
 repo-structure section 1.
 
