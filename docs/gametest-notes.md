@@ -1,11 +1,20 @@
 # GameTest
 
-**Status: wired up, not yet executed.** The manifest declares
+**Status: wired up and passing in game.** The manifest declares
 `@minecraft/server-gametest`, `packs/BP/scripts/gametests/ExampleTests.js`
-registers two SimulatedPlayer tests, and `main.js` imports them, so they reach
-a build and pass `verify.sh`. **No test has been run in game yet** - running one
-means loading the world and typing `/gametest run`, which nothing outside the
-game can do. Treat the tests below as unexecuted until that happens.
+registers two SimulatedPlayer tests, and `main.js` imports them.
+
+**Both passed in game on 2026-08-31**, on the retail Win32 client, in a world
+built by `scripts/testworld.sh`. `template:simulated_player_walks` and
+`template:simulated_player_breaks_block` each showed a green beacon, and a
+deliberately-failing control showed red - so the green ones mean something.
+That confirms the whole chain: the beta module resolves, `register()` runs,
+the fixture places, a SimulatedPlayer spawns, walks, aims and mines.
+
+Running a test is still a **human step**: it means typing `/gametest run` in
+the world. The `/connect` bridge exposes no command tool, so nothing outside
+the game can trigger one - though the *result* is readable from outside, see
+below.
 
 The fixture `packs/BP/structures/nimrodx_template/example.mcstructure` is real
 and committed, built from `docs/fixtures/example.volume.json`.
@@ -224,6 +233,55 @@ Points that are easy to get wrong:
 - **`breakBlock` does not aim.** Call `lookAtBlock` first or it does nothing.
 - **Nothing registers itself.** The game loads only the manifest's entry point,
   so `main.js` must import each test file or `/gametest run` will not list it.
+
+### Reading a result without being in the game
+
+A finished test leaves marker blocks beside the arena, and they are ordinary
+blocks - so `world.read_region` through the bridge can read the outcome with
+nobody reporting it. Confirmed in game 2026-08-31:
+
+| Blocks | Meaning |
+|---|---|
+| beacon + `lime_stained_glass` above it | passed |
+| beacon + `red_stained_glass` above it, plus a **lectern** beside the pad | failed |
+
+The lectern holds the failure text. Its position is readable, its contents are
+not - `world.get_block` returns block states, not NBT - so the lectern says
+*that* a test failed, never *why*. The `structure_block`, `command_block` and
+`stone_button` are present either way and carry no result.
+
+Each run places a fresh arena in unused space rather than reusing the last one,
+so several runs leave several arenas and the newest is the one nearest the
+player.
+
+### The structure is restored after a run - post-run blocks prove nothing
+
+**This is the trap.** When a test finishes, GameTest puts the structure back
+the way it started. A test that breaks, places, or moves a block leaves no
+trace of having done so.
+
+It cost an investigation here. `simulated_player_breaks_block` reported a pass
+while its target block read `minecraft:stone` and no cobblestone had dropped,
+which looks exactly like an assertion that passed without checking anything.
+
+The way to tell those apart is a **control test that must fail** - assert
+`diamond_block` where stone is, and see whether the beacon goes red. It did,
+along with a failure lectern. So assertions do evaluate block types, the break
+test's `air` assertion genuinely held during the run, and restoration is what
+erased the hole afterwards.
+
+Two lessons worth keeping:
+
+- **Never conclude anything from the state of a structure after a run.**
+  Reading the arena tells you the result markers and nothing else.
+- **When a pass looks unearned, prove the harness can fail** before trusting
+  it. A control assertion is cheap and conclusive; reasoning about the API from
+  the outside is neither. Delete the control once it has answered - a
+  permanently red test in the suite is how a team learns to ignore red.
+
+If a test needs to report more than pass/fail, have it write a **sentinel
+block** outside the structure bounds. Sentinels survive restoration, and the
+bridge can read them.
 
 ### Running them
 

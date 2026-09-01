@@ -59,29 +59,3 @@ register("template", "simulated_player_breaks_block", (test) => {
 })
   .structureName(FIXTURE)
   .maxTicks(WALK_TIMEOUT);
-
-// CONTROL - this test MUST fail. It exists to prove the others mean something.
-//
-// simulated_player_breaks_block reported a pass while leaving its target block
-// intact, which has two possible causes: either GameTest restores the
-// structure after a run (so the pass is real and post-run blocks prove
-// nothing), or assertBlockPresent is not evaluating what it appears to and the
-// assertion passed vacuously.
-//
-// A green beacon here means the second: the harness is not discriminating, and
-// every pass recorded so far is worthless. A red beacon means assertions do
-// evaluate block types, which leaves structure restoration as the explanation
-// and the break test's pass as genuine.
-//
-// Delete this once that question is settled - a permanently failing test in
-// the suite is how a team learns to ignore red.
-register("template", "control_must_fail", (test) => {
-  // The pad is stone. It is never diamond. If this ever succeeds, the
-  // assertion is not looking at the block.
-  test.succeedWhen(() => {
-    test.assertBlockPresent("minecraft:diamond_block", { x: 2, y: 0, z: 1 }, true);
-  });
-})
-  .structureName(FIXTURE)
-  // Short on purpose: it fails by timing out, and there is no reason to wait.
-  .maxTicks(40);

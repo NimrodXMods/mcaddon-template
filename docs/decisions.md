@@ -758,9 +758,9 @@ the derivation move back into `data.json`.
   the only type with both. A block family (variants from one template) and an
   item set are the obvious candidates - and per the skill policy, a block family
   is also what `bedrock-jsonte` needs before it can become a skill.
-- **Running a GameTest in game.** The tests are wired up and reach a build,
-  but none has been executed - that needs a world with the Beta APIs
-  experiment on and a human to type `/gametest run`. See `docs/gametest-notes.md`.
+- ~~**Running a GameTest in game.**~~ Done 2026-08-31: both SimulatedPlayer
+  tests pass on the retail client, verified against a failing control. See
+  `docs/gametest-notes.md`.
 - **Automating the production strip.** Beta APIs are accepted for testing and
   rejected for release, but removing the dependency and the test import is a
   manual step today. Wiring the `gametests` Regolith filter into a production
