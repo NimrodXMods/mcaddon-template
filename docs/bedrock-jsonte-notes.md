@@ -72,6 +72,34 @@ Strings pulled from `jsonte.exe`: `.templ`, `.modl`, `.template`, plus plain
 `.json` and `.lang`. This project uses `.templ` for files that generate an
 output file and `.modl` for modules that do not.
 
+**`.jsonc` is not recognised - do not rename a scope file to it.** Tested
+2026-09-01 by renaming `packs/data/jsonte/data.json` to `data.jsonc`: jsonte
+loaded no scope at all, and every variable in it became `null`.
+
+Comments are the reason anyone would want to: `data.json` legitimately contains
+`//` comments (jsonte strips them, and the build is green with them present), so
+an editor treating it as strict JSON flags them as errors. **The fix is the
+editor, not the file** - `.vscode/settings.json` maps
+`packs/data/jsonte/*.json`, `*.templ` and `*.modl` to the `jsonc` language.
+
+How it failed is worth knowing, because it is only loud by luck:
+
+```
+Error evaluating '{{drifter_variants.map(v => 'Texture.' + v)}}'
+Cannot access drifter_variants.map
+Cannot access map from a null
+Iteration action must evaluate to an array
+```
+
+The build failed hard - but only because something **iterated** over a missing
+variable. A missing scope variable is not itself an error; it evaluates to
+`null`. So in a project whose templates only interpolate scalars, the same
+mistake would plausibly produce a *successfully written* file containing a
+garbage identifier rather than a failed build. Not tested (the loop aborted the
+run before any scalar-only file was written), but it follows from `null` being
+the value of an absent variable, and it is the same silent-into-the-output shape
+as the one-pass scope trap above.
+
 ### The invocation is fixed
 
 The cached `filter.json` always runs:

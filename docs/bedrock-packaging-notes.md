@@ -143,7 +143,8 @@ Two things that *are* defects:
 
 **Still untested in game:** whether Minecraft itself accepts the array form
 for `module_name` dependencies. Both mct and Learn say yes; neither is the
-game. Worth confirming before relying on it.
+game. Worth confirming before relying on it - tracked as item 6 in
+`docs/test-backlog.md`, which records what each outcome would mean.
 
 All four extensions are zips; `.mctemplate` is documented as literally "zip
 everything up, rename the file".
@@ -233,7 +234,9 @@ prose that got `minecraft:icon` wrong, and **the archive built here contained
 neither**. Open, in order of how much they matter:
 
 - Does the importer actually accept **nested `.mcpack` / `.mcworld`
-  archives**, as the glossary implies?
+  archives**, as the glossary implies? Tracked as item 7 in
+  `docs/test-backlog.md`; the two questions below are worth answering only if
+  this one comes back yes.
 - Can one `.mcaddon` hold **more than one pack of the same type** - two
   resource packs, say? Nothing structural forbids it, since each directory has
   its own manifest and UUIDs, but that is reasoning, not evidence.

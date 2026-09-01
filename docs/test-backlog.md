@@ -84,6 +84,51 @@ To redo: copy `stalker.behavior.templ`, change only `format_version`, bisect.
 Worth doing only if the exact cutoff ever becomes load-bearing - the general
 rule ("author at the newest released version") does not depend on it.
 
+## 6. Does Minecraft accept the array form for `module_name` dependencies?
+
+Reading mct's source established that **both** forms are legal *to mct*:
+`IAddonManifest.d.ts` types the dependency as `version: number[] | string`, and
+Learn's manifest reference agrees. Neither of those is the game. This project
+prefers strings anyway (manifest v3 requires them), so the question is not which
+to use - it is whether the array form mct normalizes to would actually load,
+because that determines how urgent the `deploy.sh` snapshot-and-restore guard is.
+
+To test: hand-edit `packs/BP/manifest.json` to `"version": [2, 9, 0]` for
+`@minecraft/server`, deploy, and load a world with the pack enabled. Note this
+deliberately bypasses `scripts/deploy.sh`'s manifest restore - use
+`regolith run` directly, and restore the string form afterwards.
+
+| Outcome | Means |
+| --- | --- |
+| Pack loads, scripts run | Both forms work; the restore guard is cosmetic hygiene, not a correctness fix |
+| Pack loads, scripts silently dead | The array form parses but breaks module resolution - the worst case, and the reason to test |
+| Pack fails to load, Content Log names the manifest | The array form is invalid to the game despite mct and Learn; the guard is load-bearing |
+
+Read the **Content Log** either way - a scripting failure will not announce
+itself in the world.
+
+## 7. Does an `.mcaddon` accept nested `.mcpack` / `.mcworld` archives?
+
+Learn's glossary calls `.mcaddon` *"a zip file that contains .mcpack or .mcworld
+files"*, but the archive `mct exportaddon` actually produced here held **46
+entries and zero nested archives** - directory trees only, each pack a top-level
+folder with its own manifest. One of the two is wrong about what the importer
+accepts, and the glossary comes from the same prose that got `minecraft:icon`
+wrong.
+
+To test: build two `.mcpack` files by hand, zip them into a `.mcaddon`, and
+import it. This is a build-and-import test, not an in-world one.
+
+| Outcome | Means |
+| --- | --- |
+| Both packs import | The glossary is right and `.mcaddon` is a general meta-importer; the working hypothesis in `docs/bedrock-packaging-notes.md` holds |
+| Import fails or silently installs nothing | The glossary is wrong; `.mcaddon` is strictly directory trees, and `mct exportaddon`'s output is the only correct shape |
+| Only one imports | Ordering or manifest-collision behaviour worth its own note |
+
+If nested archives *do* work, the follow-on questions in the packaging notes
+become worth answering: whether one `.mcaddon` can hold two packs of the same
+type, and whether it can contain a `.mctemplate`.
+
 ---
 
 ## Build-time checks - no playtest needed
