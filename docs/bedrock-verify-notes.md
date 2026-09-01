@@ -167,8 +167,8 @@ change worked.**
   healthy project. Not a health signal. `errorCount` is.
 - Recommendations (`iTp: 6`) and `warningCount` never reach `errorCount`; print
   them as non-fatal notes or they are invisible.
-- Wrap mct in `timeout` - it resolves script module deps against the npm
-  registry and a half-open network stalls it for minutes.
+- Wrap mct in `timeout`. It can hang outright, and an unbounded hang in the
+  completion gate is worse than a failure.
 - **The gate does not validate component payloads.** A malformed component
   reports zero errors. Only loading the pack in game catches that.
 
@@ -201,11 +201,9 @@ the pipeline where they see the compiled pack:
 
 ## mct behaviour the gate has to work around
 
-- `mct validate` is fast - about 7 seconds here. Anything from mct running for
-  minutes is a **network stall**, not slow validation: it resolves script
-  module dependencies against registry.npmjs.org, and a half-open connection
-  hangs it. `--offline` does **not** suppress those lookups. Hence `timeout`
-  and `MCT_TIMEOUT`.
+- `mct validate` is fast - about 7 seconds here, and about 9 with the
+  GameTest module added. mct running for minutes means it has **hung**, not
+  that validation is slow; that is what `timeout` and `MCT_TIMEOUT` bound.
 - `mct fix setnewestminengineversion` is a **no-op that reports success**. It
   prints "Updated 2 min_engine_version(s)" and returns `updatedCount: 2` from
   `--json` while the file stays byte-identical (md5-verified on 0.17.8).

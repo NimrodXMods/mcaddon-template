@@ -755,14 +755,13 @@ mct create -y -o . <name> <template> <creator> "<description>"
 mct create -y -o ./myproj                    # all defaults
 ```
 
-**`create` can appear to hang for many minutes.** That is a network stall,
-not an mct defect - see "An mct command runs for minutes" in the gotcha table
-(section 6 of the repo-structure part) for the diagnosis. Run mct under
-`timeout` so a stall fails loudly - `scripts/verify.sh` and
-`scripts/deploy.sh` both do, defaulting to 60s.
+**`create` hangs, even with `-y`.** That is an mct defect, not the environment.
+Because it never returns, it cannot be driven from a non-interactive tool; hand
+it to the user to run. The scripts here wrap every mct call in `timeout` so a
+hang fails loudly instead of blocking a build - `scripts/verify.sh`,
+`scripts/deploy.sh` and `scripts/testworld.sh` all do, defaulting to 60s.
 
-Separately, and unrelated to the network: **`create` does not apply the name and
-creator arguments you pass.** The log claims it wrote
+Separately: **`create` does not apply the name and creator arguments you pass.** The log claims it wrote
 `behavior_packs/<yourname>/manifest.json`, but on disk the folder is the raw
 template (`aop_mobs`) with `"name": "Sample Add-on Pack"` and Mojang's
 placeholder UUIDs. Treat the output as an unmodified template to rename and
@@ -935,7 +934,8 @@ which takes a list:
 # from: my-addon/
 regolith run                                # -i build must not be stale
 npx mct -i build -o build/worlds exportworld
-npx mct world set -i . --betaApis true      # only if you need beta APIs
+npx mct world set -i . --betaApis true      # REQUIRED - the BP depends on
+                                            # @minecraft/server-gametest
 npx mct deploytestworld -i . --launch
 ```
 
@@ -943,6 +943,12 @@ npx mct deploytestworld -i . --launch
 nothing (gotcha table). And do not export with `-i .`: that packs `packs/`
 source instead of the Regolith build output, and rewrites the source manifest
 on the way through. `docs/gametest-notes.md` has the detail.
+
+**A GameTest world needs both experiments.** `exportworld` writes
+`experiments: { gametest: 1 }` on its own, but Beta APIs is separate and the
+`--betaapis` flags are inert on that command (gotcha table). The BP depends on
+`@minecraft/server-gametest`, a beta module, so without Beta APIs the pack does
+not load at all. On an existing world, set both toggles by hand.
 
 ### 3g. The verify gate
 
@@ -1131,7 +1137,7 @@ rewrites `packs/BP/manifest.json` the same way `exportaddon` does. See
 | `mct exportworld` leaves `packs/BP/manifest.json` modified | The export is **not read-only**: it rewrites the manifest of whatever `-i` points at, in place - converting `module_name` dependency versions from the semver-string form (`"2.9.0"`) to the array form (`[2, 9, 0]`) and dropping the trailing newline. Observed on mct v0.17.8. Running it as `-i build` confines the rewrite to derived output and avoids this entirely; otherwise `git checkout -- packs/BP/manifest.json` after exporting, and check `git status` before committing - it is easy to sweep this into an unrelated commit. Whether the game actually accepts the array form for script-module deps is test-backlog item 6 and is still unverified; its failure mode is silent (pack loads, scripts dead). |
 | `mct ensureworld` says `Created world at ...` but writes nothing | The message is a lie: `find out -type f` is empty and `git status` stays clean. `exportworld` is the command that writes a real world zip. Use `npx mct -i build -o build/worlds exportworld` - **`-i` defaults to the working directory, so bare it packs `packs/` source rather than the Regolith build output**, and filter-generated content (templated entities, `en_US.lang`, `textures_list.json`) is then missing from the world. `-o` sets the output directory; the filename is always `<basename of -i>.mcworld` unless you pass `--of`. See `docs/gametest-notes.md`. |
 | `--betaapis` / `--no-betaapis` appear to do nothing on `exportworld` | They are inert there. `exportworld` unconditionally writes `experiments: { gametest: 1 }` - a GameTest world is what it produces by definition. Exporting with each flag and diffing the two `level.dat` files leaves one byte different: the `LastPlayed` timestamp. Those flags matter on the world/deploy paths only. |
-| An mct command runs for minutes | Network, not the tool. mct resolves script module deps against registry.npmjs.org and a half-open connection stalls it; `--offline` does not stop those lookups. `--verbose` eventually shows `Could not load registry for '@minecraft/server'`. Both scripts wrap mct in `timeout` (60s, `MCT_TIMEOUT` to raise). npm's own `fetch-*` retry settings do not apply - mct is not npm. |
+| An mct command runs for minutes | It has hung, not gotten slow. A normal `validate` is a few seconds. Judge success by the output files, never by the command returning. Every mct call in `scripts/` is wrapped in `timeout` (60s, `MCT_TIMEOUT` to raise) so a hang fails loudly. |
 | `timeout: failed to run command 'mct'` while `regolith run` succeeds | The global install is half-written, but creator-tools is rarely the culprit - **npm's global prefix is one shared tree**, and `npm i -g <anything>` re-reifies all of it and runs every package's install scripts. One unrelated postinstall failing aborts the whole transaction after extraction but before bin shims are linked. Observed here: `glslang-validator-prebuilt` died with `Cannot find module 'rimraf'`, leaving creator-tools with no `mct` shim. Diagnose from `npm ls -g --depth=0` - **a package printed with an empty version after the `@` is half-installed** - then the npm debug log the failure names. Recovery: remove the failing package, reinstall, re-check. See section 2. |
 | `npm warn cleanup ... EPERM: operation not permitted, unlink ...node.napi.node` | A running process has the native addon (`.node` = a DLL) mapped, and Windows will not unlink a loaded DLL. Almost always the **`mct mcp` MCP server this repo's `.mcp.json` starts**, holding `bufferutil`. npm finishes the install but cannot swap or clean its staging directory, stranding a ~55 MB `node_modules/@minecraft/.creator-tools-<hash>/` copy - whose truncated `dist lib node_modules res` contents are easily mistaken for a corrupt package. Stop the MCP server before any global install touching creator-tools, or use `npx -y -p @minecraft/creator-tools mct ...` which never writes to the global tree. Find leftovers with `find "$(npm config get prefix)/node_modules" -maxdepth 2 -name '.*-*' -type d`. |
 | jsonte: `Failed to parse JSON ... Unexpected token '{'` | `{{ }}` was used outside a string. A `.templ` must be valid JSON *before* templating, so write `"value": "{{expr}}"`. A string that is entirely one expression is type-coerced on output, so this still emits an unquoted number. |

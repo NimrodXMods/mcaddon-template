@@ -60,9 +60,8 @@ OUT="build/worlds/testworld.mcworld"
 echo
 echo "==> mct exportworld   (-i build)"
 
-# Bounded for the same reason as verify.sh and deploy.sh: mct resolves script
-# module dependencies against registry.npmjs.org, and a half-open network
-# stalls it for minutes rather than failing.
+# Bounded for the same reason as verify.sh and deploy.sh: mct can hang, and a
+# hang must fail loudly rather than block.
 MCT_TIMEOUT="${MCT_TIMEOUT:-60}"
 
 # Insurance, not ceremony: if a future mct version starts reaching past -i,
@@ -91,8 +90,8 @@ rm -rf "$SNAP"
 if [ "$EXPORT_EXIT" = "124" ]; then
   echo
   echo "FAIL: mct exportworld exceeded ${MCT_TIMEOUT}s and was killed."
-  echo "Usually a network stall on registry.npmjs.org, not a project problem."
-  echo "Raise the budget with MCT_TIMEOUT=<seconds>."
+  echo "mct has hung. Raise the budget with MCT_TIMEOUT=<seconds> only if the"
+  echo "project is genuinely large."
   exit 1
 fi
 

@@ -200,33 +200,24 @@ deploy.sh snapshot/restore guard can go.
 
 ## mct calls are wrapped in `timeout`
 
-**Decided, after losing an afternoon to it.** `mct create` and `mct exportaddon`
-appeared to hang indefinitely - reproduced across 0.17.7 and 0.17.8, two drives,
-`--offline`, a fresh dependency tree, and three invocation methods (global shim,
-direct `node`, `npx`). All of that pointed at an mct bug.
+**Decided, and kept for a different reason than it was adopted.**
 
-It was the network. mct resolves script module dependencies
-(`@minecraft/server`, `@minecraft/server-ui`) against registry.npmjs.org. A
-router fault was leaving connections half-open - reachable but never completing -
-so mct stalled for minutes instead of failing. `--verbose` eventually reveals it:
+The original trigger was a **local router misconfiguration**, since fixed. It
+left outbound connections half-open, and mct's registry lookups hung on them
+rather than failing. That was a one-off fault in this environment, **not** a
+standing hazard of the toolchain: do not write warnings about network stalls
+into this repo, and do not diagnose a slow mct command as a network problem.
 
-```
-Could not load registry for '@minecraft/server': Error: read ECONNRESET
-```
+The `timeout` wrapper stays anyway, on its own merits. mct does hang for
+reasons of its own - `mct create` still does, reliably, even with `-y` - and an
+unbounded hang inside the completion gate is worse than a clean failure. So
+`scripts/verify.sh`, `scripts/deploy.sh` and `scripts/testworld.sh` wrap every
+mct call in `timeout` (60s default, `MCT_TIMEOUT` to override). `deploy.sh`
+additionally fails when no `.mcaddon` is produced, rather than exiting 0 having
+packaged nothing.
 
-`--offline` does **not** suppress these lookups, despite the flag name.
-
-So: `scripts/verify.sh` and `scripts/deploy.sh` wrap every mct call in `timeout`
-(60s default, `MCT_TIMEOUT` to override) and fail with a message naming the
-likely cause. `deploy.sh` additionally fails when no `.mcaddon` is produced,
-rather than exiting 0 having packaged nothing.
-
-npm's own `fetch-retry-*` settings do not help here - mct has its own registry
-client and does not read npm config.
-
-**Lesson worth keeping:** a stall that survives version, drive, install and
-invocation changes is more likely environmental than a tool bug. Check the
-network before concluding the tool is broken.
+**Lesson worth keeping:** a failure that survives version, drive, install and
+invocation changes is environmental. Suspect the box before the tool.
 
 ---
 
@@ -283,20 +274,40 @@ per-file when touching that file, not in a sweep.
 
 ---
 
-## No Beta APIs in the base template
+## Beta APIs: yes for testing, never in a production build
 
-**Decided.** The template assumes production. The BP manifest depends only on
-`@minecraft/server` and `@minecraft/server-ui`, both stable; no
-`@minecraft/server-gametest`, and the test world does not enable the Beta APIs
-experiment.
+**Refined 2026-09-01.** This supersedes an earlier entry that banned
+`@minecraft/server-gametest` from the template outright. The ban was aimed at
+the right target - the **shipped** add-on - but it was written as a blanket
+rule and so also forbade testing.
 
-The cost is that GameTest cannot run against the template as shipped. That is
-accepted: a beta dependency changes what the pack requires to load, and a
-template that cannot be shipped to production is worse than one that cannot
-self-test. Enabling Beta APIs is a decision made **at instantiation**, per
-project, not inherited from the template.
+The split now is:
 
-**Revisit if:** the GameTest APIs stabilise out of beta.
+- **Development and testing: Beta APIs are fine.** The BP manifest declares
+  `@minecraft/server-gametest` (`"1.0.0-beta"`) and the template ships two
+  SimulatedPlayer tests. A test world enables both the GameTest Framework and
+  Beta APIs experiments.
+- **Production: the beta dependency and the test code both come out.** A
+  released add-on must load without experimental toggles, which is what the
+  original decision was protecting and still holds.
+
+Why testing was worth it: nothing else can move a player. The retail
+`/connect` bridge has no movement primitive and no Agent in retail; mct's
+BDS-only `moveSessionPlayerToLocation` is a `/tp`, which repositions a player
+but cannot make one walk, mine, place or use an item. `SimulatedPlayer` is the
+only route to testing *player-driven* behaviour.
+
+**The gap this leaves.** Stripping is currently **manual** - two deletions,
+documented in `docs/gametest-notes.md` - which means a production build depends
+on somebody remembering. That is the weak point of this decision, not the beta
+dependency itself. The fix is the `gametests` Regolith TS filter: it excludes
+test code from a chosen profile, so a `build`/production profile drops the
+tests while `default` keeps them, and the split stops being a manual step.
+Not yet installed; tracked in the open questions.
+
+**Revisit if:** the GameTest APIs stabilise out of beta (the strip becomes
+unnecessary), or the `gametests` filter gets wired in (the strip becomes
+automatic).
 
 ---
 
@@ -529,9 +540,8 @@ Regolith, replacing the pack wholesale rather than transforming it. The two
   `builds/dist/<name> BP` assumption was written against the old layout.
 - **Two new toolchain prerequisites**, Nim *and* Deno. The `jsonte` filter
   ships prebuilt binaries and needs neither (see `docs/bedrock-jsonte-notes.md`).
-- **A network fetch at filter runtime.** We already lose time to mct stalling
-  on registry lookups (`docs/bedrock-verify-notes.md`); adding a second
-  build-time download is the wrong direction, and it breaks offline CI.
+- **A network fetch at filter runtime.** A build-time download is the wrong
+  direction for a gate that has to run offline, and it breaks offline CI.
 - **`config.json` collision.** bridge. and Regolith both use `config.json` at
   the project root. Dash demands a `compiler` key in ours, which is a bridge
   concept inside a file validated against `Bedrock-OSS/regolith-schemas`. The
@@ -748,9 +758,14 @@ the derivation move back into `data.json`.
   the only type with both. A block family (variants from one template) and an
   item set are the obvious candidates - and per the skill policy, a block family
   is also what `bedrock-jsonte` needs before it can become a skill.
-- **Whether to enable Beta APIs.** Required for GameTest. Adding a
-  `@minecraft/server-gametest` dependency changes what the pack needs to load,
-  so it is deliberate. See `docs/gametest-notes.md`.
+- **Running a GameTest in game.** The tests are wired up and reach a build,
+  but none has been executed - that needs a world with both experiments on and
+  a human to type `/gametest run`. See `docs/gametest-notes.md`.
+- **Automating the production strip.** Beta APIs are accepted for testing and
+  rejected for release, but removing the dependency and the test import is a
+  manual step today. Wiring the `gametests` Regolith filter into a production
+  profile is what makes that automatic. This is the highest-value gap in the
+  GameTest setup.
 - **Whether the template ships a custom model.** Currently vanilla-only.
 - **Whether the bumped entities still *behave*.** Tracked in
   `docs/test-backlog.md`. `/summon` proves they load; nothing has confirmed

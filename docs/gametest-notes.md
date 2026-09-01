@@ -1,10 +1,14 @@
 # GameTest
 
-**Status: not wired up.** Notes and drafts, per the skill policy in
-`docs/decisions.md` - no test runs yet. One thing here is real and committed:
-the fixture `packs/BP/structures/nimrodx_template/example.mcstructure`, built
-from `docs/fixtures/example.volume.json`. The remaining gap is the
-`@minecraft/server-gametest` manifest dependency; see the blockers section.
+**Status: wired up, not yet executed.** The manifest declares
+`@minecraft/server-gametest`, `packs/BP/scripts/gametests/ExampleTests.js`
+registers two SimulatedPlayer tests, and `main.js` imports them, so they reach
+a build and pass `verify.sh`. **No test has been run in game yet** - running one
+means loading the world and typing `/gametest run`, which nothing outside the
+game can do. Treat the tests below as unexecuted until that happens.
+
+The fixture `packs/BP/structures/nimrodx_template/example.mcstructure` is real
+and committed, built from `docs/fixtures/example.volume.json`.
 
 ## Where GameTests actually live
 
@@ -18,7 +22,7 @@ packs/BP/
                               #   ("entry": "scripts/main.js"); imports every
                               #   test file
     gametests/
-      ExampleTests.js
+      ExampleTests.js         # registers the SimulatedPlayer tests
   structures/
     nimrodx_template/
       example.mcstructure     # built by `mct buildstructure`, see below
@@ -108,7 +112,7 @@ the MCP server.
 Building a fixture from a description is now an agent task; copying a build out
 of a save still means a structure block and `com.mojang/structures/`.
 
-### 2. Beta APIs and the gametest module - still a real blocker, but only half of it
+### 2. Beta APIs and the gametest module - RESOLVED, with a caveat
 
 The world half is handled for you. `mct exportworld` always writes
 `experiments: { gametest: 1 }` into the exported `level.dat` - a GameTest world
@@ -123,16 +127,104 @@ export leaves `saved_with_toggled_experiments: 0` and `experiments_ever_used: 0`
 alongside `gametest: 1`. If the game refuses the experiment or nags on load,
 those two are the first suspects.
 
-The manifest half is **not** handled. `packs/BP/manifest.json` still depends
-only on stable `@minecraft/server` and `@minecraft/server-ui`; nothing adds
-`@minecraft/server-gametest`. Until that dependency exists the exported world
-loads and the tests simply are not there. **The base template deliberately
-leaves it out** - it assumes production, and enabling Beta APIs is a per-project
-decision made at instantiation. See `docs/decisions.md`.
+The manifest half is now handled too. `packs/BP/manifest.json` declares:
 
-Note also that adding that dependency makes the mct network stall more likely,
-because mct resolves script module dependencies against `registry.npmjs.org`.
-That is what `MCT_TIMEOUT` is for.
+```json
+{ "module_name": "@minecraft/server-gametest", "version": "1.0.0-beta" }
+```
+
+The version string is the **channel name**, not a resolved version. npm has no
+`1.0.0-beta` tarball - the published versions are shaped
+`1.0.0-beta.1.26.40-stable` - and the game resolves the channel against its own
+engine version at load. Do not "fix" this to a concrete npm version.
+`mct validate addon` accepts it and stays clean.
+
+**What this costs.** A beta module is not optional at load time: with this
+dependency present the pack requires the Beta APIs experiment and fails to load
+without it, rather than quietly skipping the tests. That is accepted **for
+development and testing only**. A production build must not ship it - see
+`docs/decisions.md`.
+
+To strip it for a production build, remove **both**:
+
+1. the `@minecraft/server-gametest` dependency from `packs/BP/manifest.json`, and
+2. the `import "./gametests/ExampleTests.js"` line from `packs/BP/scripts/main.js`.
+
+Removing only one breaks the build: the import without the dependency fails to
+resolve, and the dependency without the import still demands the experiment.
+
+**This strip is manual, and that is the current weak point.** A release depends
+on somebody remembering to do it. The proper fix is the `gametests` Regolith TS
+filter, which excludes test code from a chosen profile - so the `build` profile
+would drop the tests automatically while `default` keeps them. See the section
+above on why that filter is a different thing from the GameTest API.
+
+## SimulatedPlayer - the reason any of this is wired up
+
+`SimulatedPlayer` is what makes GameTest worth the experiment flags. It is a
+real, driveable player entity: `moveToLocation`, `navigateToLocation`, `jump`,
+`breakBlock`, `interactWithBlock`, `useItemInSlot`, `attack`, `lookAtBlock`.
+
+This matters because the alternative routes cannot move a player at all:
+
+- The retail `/connect` WebSocket bridge drives commands and reads world state.
+  It has no movement primitive, and the Education Agent it can locate does not
+  exist in retail (`world_agent` returns `exists: false`).
+- mct's session tools are BDS-only, and `moveSessionPlayerToLocation` is a `/tp`
+  underneath - it repositions a player, it does not walk one. It cannot mine,
+  place, attack or use an item.
+
+So SimulatedPlayer is the only thing here that exercises *what happens when a
+player does the thing*, rather than *what is near the thing*.
+
+### Registration shape
+
+```js
+import { register } from "@minecraft/server-gametest";
+
+register("template", "simulated_player_walks", (test) => {
+  const player = test.spawnSimulatedPlayer({ x: 1, y: 1, z: 1 }, "WalkTester");
+  player.moveToLocation({ x: 3, y: 1, z: 3 });
+  test.succeedWhen(() => {
+    test.assertEntityInstancePresent(player, { x: 3, y: 1, z: 3 });
+  });
+})
+  .structureName("nimrodx_template:example")
+  .maxTicks(200);
+```
+
+Points that are easy to get wrong:
+
+- **Coordinates are relative to the structure origin**, not world coordinates.
+  The fixture is a 5x5 pad at relative y=0, so a player stands at y=1.
+- **`moveToLocation` is continuous, not blocking.** It starts the player
+  walking and returns immediately; `succeedWhen` is what waits. A test that
+  asserts position on the next line always fails.
+- **`maxTicks` needs headroom.** A simulated player spawns falling and does not
+  path until it lands, so a tight budget fails as "never arrived" when the
+  player was merely still walking. 200 ticks for a two-block walk is
+  deliberately generous.
+- **`breakBlock` does not aim.** Call `lookAtBlock` first or it does nothing.
+- **Nothing registers itself.** The game loads only the manifest's entry point,
+  so `main.js` must import each test file or `/gametest run` will not list it.
+
+### Running them
+
+Requires **both** experiments on the world: *GameTest Framework* and *Beta APIs*.
+`mct exportworld` writes `experiments: { gametest: 1 }` unconditionally, but it
+does **not** set Beta APIs - the `--betaapis` flags are inert there (see above),
+so on an existing world both toggles are set by hand in world settings.
+
+Then, in game:
+
+```
+/gametest run template:simulated_player_walks
+/gametest runset template          # every test in the class
+```
+
+This is a human step. The `/connect` bridge exposes no command tool, so an
+agent cannot trigger a run or read the result; pass/fail appears in chat and on
+the in-world test markers.
 
 ### `mct ensureworld` writes nothing
 

@@ -74,9 +74,8 @@ echo "==> mct validate addon"
 rm -rf "$REPORTS"
 mkdir -p "$REPORTS"
 
-# Bounded. mct resolves script module dependencies (@minecraft/server, etc.)
-# against the npm registry, and an unreachable-but-not-refusing network makes
-# it stall for minutes rather than failing. A normal run is a few seconds.
+# Bounded. mct can hang outright, and an unbounded hang in the completion gate
+# is worse than a failure. A normal run is a few seconds.
 MCT_TIMEOUT="${MCT_TIMEOUT:-60}"
 
 set +e
@@ -87,9 +86,8 @@ set -e
 if [ "$MCT_EXIT" = "124" ]; then
   echo
   echo "FAIL: mct validate exceeded ${MCT_TIMEOUT}s and was killed."
-  echo "This is almost always a network stall, not a broken project: mct looks"
-  echo "up script module dependencies on registry.npmjs.org. Check connectivity,"
-  echo "or raise the budget with MCT_TIMEOUT=<seconds>."
+  echo "mct has hung rather than gotten slow - a normal run is a few seconds."
+  echo "Raise the budget with MCT_TIMEOUT=<seconds> only if the project is large."
   exit 1
 fi
 

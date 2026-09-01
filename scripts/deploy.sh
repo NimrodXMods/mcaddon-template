@@ -23,9 +23,8 @@ regolith run build
 
 echo
 echo "==> mct exportaddon"
-# Bounded for the same reason as verify.sh: mct resolves script module
-# dependencies against the npm registry, and a half-open network stalls it
-# for minutes. --offline is safe here - it produces a byte-identical archive.
+# Bounded for the same reason as verify.sh: mct can hang, and a hang must fail
+# loudly rather than block. --offline is safe here - byte-identical archive.
 MCT_TIMEOUT="${MCT_TIMEOUT:-60}"
 
 # mct exportaddon REWRITES the source manifests as a side effect: it resolves
@@ -53,8 +52,8 @@ rm -rf "$SNAP"
 if [ "$EXPORT_EXIT" = "124" ]; then
   echo
   echo "FAIL: mct exportaddon exceeded ${MCT_TIMEOUT}s and was killed."
-  echo "Usually a network stall on registry.npmjs.org, not a project problem."
-  echo "Raise the budget with MCT_TIMEOUT=<seconds> if the project is large."
+  echo "mct has hung. Raise the budget with MCT_TIMEOUT=<seconds> if the"
+  echo "project is genuinely large, otherwise treat it as a hang."
   exit 1
 fi
 
