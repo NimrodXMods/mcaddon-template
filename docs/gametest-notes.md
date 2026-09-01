@@ -122,10 +122,26 @@ files leaves exactly one byte different, the `LastPlayed` timestamp. Do not
 reach for those flags to control this; they matter on the world/deploy paths,
 not on `exportworld`.
 
-Untested, and worth checking the first time a world is actually loaded: the
-export leaves `saved_with_toggled_experiments: 0` and `experiments_ever_used: 0`
-alongside `gametest: 1`. If the game refuses the experiment or nags on load,
-those two are the first suspects.
+**The exported world is internally inconsistent, and this is the most likely
+way the first run fails.** Measured on `build/worlds/testworld.mcworld` by
+reading the byte tags out of `level.dat`:
+
+```
+gametest                       = 1
+saved_with_toggled_experiments = 0
+experiments_ever_used          = 0
+```
+
+A world where somebody actually enabled an experiment carries `1` for all
+three. `exportworld` sets the experiment but not the two flags that record it
+having been set, so the game may nag on load, or refuse the experiment and
+load the world without the add-on.
+
+Untested - the first world load settles it. If the add-on is missing on load,
+this is the first suspect, ahead of anything in the pack. The recovery is to
+toggle the experiment off and on once in world settings, which makes the game
+write all three itself. `mct world set --betaApis` will **not** fix it (it is
+inert; see below).
 
 The manifest half is now handled too. `packs/BP/manifest.json` declares:
 
@@ -141,7 +157,8 @@ engine version at load. Do not "fix" this to a concrete npm version.
 
 **What this costs.** A beta module is not optional at load time: with this
 dependency present the pack requires the Beta APIs experiment and fails to load
-without it, rather than quietly skipping the tests. That is accepted **for
+without it, rather than quietly skipping the tests. A released add-on cannot
+ask players to enable an experiment. That is accepted **for
 development and testing only**. A production build must not ship it - see
 `docs/decisions.md`.
 
@@ -210,10 +227,20 @@ Points that are easy to get wrong:
 
 ### Running them
 
-Requires **both** experiments on the world: *GameTest Framework* and *Beta APIs*.
-`mct exportworld` writes `experiments: { gametest: 1 }` unconditionally, but it
-does **not** set Beta APIs - the `--betaapis` flags are inert there (see above),
-so on an existing world both toggles are set by hand in world settings.
+Needs the **Beta APIs** experiment - which is one toggle, not two. The key in
+`level.dat` is `gametest`, and the checkbox in world settings is labelled *Beta
+APIs*; they are the same thing. `mct exportworld` writes
+`experiments: { gametest: 1 }` unconditionally, so a world from
+`scripts/testworld.sh` should already have it and need nothing set by hand.
+
+Evidence for the equivalence, since the naming actively misleads: `mct world
+set` reads an exported world whose only experiment key is `gametest` and prints
+`Beta APIs: true`. **Not yet confirmed in game** - if an imported world loads
+without the add-on present, the experiment toggle is the first thing to check.
+
+Do not try to fix it with `mct world set --betaApis true`. That command is
+inert on an exported world folder: both `true` and `false` print
+`Beta APIs: true` and leave `level.dat` byte-identical (md5-verified, 0.17.8).
 
 Then, in game:
 

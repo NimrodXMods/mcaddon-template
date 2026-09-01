@@ -22,12 +22,20 @@
 #   deploy.sh this script needs no snapshot-and-restore. It is asserted below
 #   rather than assumed.
 #
-# The exported world always has the Beta APIs experiment set
-# (experiments.gametest = 1) - that is what exportworld produces by
-# definition, and the global --betaapis/--no-betaapis flags are inert on it.
-# Running a GameTest additionally needs a @minecraft/server-gametest
-# dependency in packs/BP/manifest.json, which the base template deliberately
-# omits. See docs/gametest-notes.md.
+# EXPERIMENTS - one toggle, not two.
+#
+#   The exported world always has experiments.gametest = 1. Despite the key
+#   name that is the toggle shown in world settings as "Beta APIs", and it is
+#   the one @minecraft/server-gametest needs. Evidence: `mct world set` reads
+#   this world and prints "Beta APIs: true" while `gametest` is the only
+#   experiment key present in level.dat.
+#
+#   So a world from this script should need no experiment set by hand. The
+#   global --betaapis/--no-betaapis flags are inert on exportworld, and so is
+#   `mct world set --betaApis` (see below) - neither is needed here.
+#
+#   Not confirmed in game. If an imported world loads without the add-on,
+#   check the experiment toggles first. See docs/gametest-notes.md.
 
 set -euo pipefail
 

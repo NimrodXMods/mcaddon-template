@@ -934,8 +934,8 @@ which takes a list:
 # from: my-addon/
 regolith run                                # -i build must not be stale
 npx mct -i build -o build/worlds exportworld
-npx mct world set -i . --betaApis true      # REQUIRED - the BP depends on
-                                            # @minecraft/server-gametest
+# NOT needed, and does not work anyway - see the gotcha table:
+# npx mct world set -i . --betaApis true
 npx mct deploytestworld -i . --launch
 ```
 
@@ -944,11 +944,12 @@ nothing (gotcha table). And do not export with `-i .`: that packs `packs/`
 source instead of the Regolith build output, and rewrites the source manifest
 on the way through. `docs/gametest-notes.md` has the detail.
 
-**A GameTest world needs both experiments.** `exportworld` writes
-`experiments: { gametest: 1 }` on its own, but Beta APIs is separate and the
-`--betaapis` flags are inert on that command (gotcha table). The BP depends on
-`@minecraft/server-gametest`, a beta module, so without Beta APIs the pack does
-not load at all. On an existing world, set both toggles by hand.
+**"Beta APIs" and the `gametest` experiment are the same toggle.** The key in
+`level.dat` is `gametest`; the checkbox in world settings is labelled *Beta
+APIs*. It is the one a beta script module such as `@minecraft/server-gametest`
+requires, and `exportworld` writes it unconditionally - so a world built by
+`scripts/testworld.sh` should need nothing set by hand. On a world that already
+exists, that single toggle is what to enable. Not yet confirmed in game.
 
 ### 3g. The verify gate
 
@@ -1136,6 +1137,7 @@ rewrites `packs/BP/manifest.json` the same way `exportaddon` does. See
 | Pack changes do not appear after `/reload` | `/reload` reloads **functions and scripts only** - not entity/block/item definitions and not textures. Use `/reload all`, which reloads all behavior and resource packs. It is implemented as a quit-and-rejoin but is effectively instant and returns you to the same spot, so there is little reason to prefer plain `/reload`. Host player only on servers. |
 | `mct exportworld` leaves `packs/BP/manifest.json` modified | The export is **not read-only**: it rewrites the manifest of whatever `-i` points at, in place - converting `module_name` dependency versions from the semver-string form (`"2.9.0"`) to the array form (`[2, 9, 0]`) and dropping the trailing newline. Observed on mct v0.17.8. Running it as `-i build` confines the rewrite to derived output and avoids this entirely; otherwise `git checkout -- packs/BP/manifest.json` after exporting, and check `git status` before committing - it is easy to sweep this into an unrelated commit. Whether the game actually accepts the array form for script-module deps is test-backlog item 6 and is still unverified; its failure mode is silent (pack loads, scripts dead). |
 | `mct ensureworld` says `Created world at ...` but writes nothing | The message is a lie: `find out -type f` is empty and `git status` stays clean. `exportworld` is the command that writes a real world zip. Use `npx mct -i build -o build/worlds exportworld` - **`-i` defaults to the working directory, so bare it packs `packs/` source rather than the Regolith build output**, and filter-generated content (templated entities, `en_US.lang`, `textures_list.json`) is then missing from the world. `-o` sets the output directory; the filename is always `<basename of -i>.mcworld` unless you pass `--of`. See `docs/gametest-notes.md`. |
+| `mct world set --betaApis <bool>` changes nothing | It is **inert on an exported world folder** and reports success either way. Verified on 0.17.8: `--betaApis true` and `--betaApis false` both print `Beta APIs: true` and leave `level.dat` byte-identical (md5 unchanged). It is reporting the world's *current* state, not applying the argument. Same family as `ensureworld` and `fix setnewestminengineversion` - **check the file, never the message.** It also happens not to matter: `exportworld` already sets the `gametest` experiment, which is what "Beta APIs" is. |
 | `--betaapis` / `--no-betaapis` appear to do nothing on `exportworld` | They are inert there. `exportworld` unconditionally writes `experiments: { gametest: 1 }` - a GameTest world is what it produces by definition. Exporting with each flag and diffing the two `level.dat` files leaves one byte different: the `LastPlayed` timestamp. Those flags matter on the world/deploy paths only. |
 | An mct command runs for minutes | It has hung, not gotten slow. A normal `validate` is a few seconds. Judge success by the output files, never by the command returning. Every mct call in `scripts/` is wrapped in `timeout` (60s, `MCT_TIMEOUT` to raise) so a hang fails loudly. |
 | `timeout: failed to run command 'mct'` while `regolith run` succeeds | The global install is half-written, but creator-tools is rarely the culprit - **npm's global prefix is one shared tree**, and `npm i -g <anything>` re-reifies all of it and runs every package's install scripts. One unrelated postinstall failing aborts the whole transaction after extraction but before bin shims are linked. Observed here: `glslang-validator-prebuilt` died with `Cannot find module 'rimraf'`, leaving creator-tools with no `mct` shim. Diagnose from `npm ls -g --depth=0` - **a package printed with an empty version after the `@` is half-installed** - then the npm debug log the failure names. Recovery: remove the failing package, reinstall, re-check. See section 2. |

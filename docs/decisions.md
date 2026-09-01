@@ -285,8 +285,8 @@ The split now is:
 
 - **Development and testing: Beta APIs are fine.** The BP manifest declares
   `@minecraft/server-gametest` (`"1.0.0-beta"`) and the template ships two
-  SimulatedPlayer tests. A test world enables both the GameTest Framework and
-  Beta APIs experiments.
+  SimulatedPlayer tests. A test world needs the Beta APIs experiment, which
+  `mct exportworld` sets on its own.
 - **Production: the beta dependency and the test code both come out.** A
   released add-on must load without experimental toggles, which is what the
   original decision was protecting and still holds.
@@ -759,8 +759,8 @@ the derivation move back into `data.json`.
   item set are the obvious candidates - and per the skill policy, a block family
   is also what `bedrock-jsonte` needs before it can become a skill.
 - **Running a GameTest in game.** The tests are wired up and reach a build,
-  but none has been executed - that needs a world with both experiments on and
-  a human to type `/gametest run`. See `docs/gametest-notes.md`.
+  but none has been executed - that needs a world with the Beta APIs
+  experiment on and a human to type `/gametest run`. See `docs/gametest-notes.md`.
 - **Automating the production strip.** Beta APIs are accepted for testing and
   rejected for release, but removing the dependency and the test import is a
   manual step today. Wiring the `gametests` Regolith filter into a production

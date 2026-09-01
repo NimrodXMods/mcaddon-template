@@ -5,9 +5,10 @@
 // y=0 with three layers of air above it. Relative coordinates below are
 // measured from that structure's origin, so y=1 is standing on the pad.
 //
-// These require BOTH the "GameTest Framework" and "Beta APIs" experiments on
-// the world. @minecraft/server-gametest is a beta module; without Beta APIs
-// the pack fails to load rather than skipping the tests.
+// These need the world's "Beta APIs" experiment - the `gametest` key in
+// level.dat, which `mct exportworld` sets unconditionally. It is one toggle,
+// not two. @minecraft/server-gametest is a beta module, so without it the
+// pack fails to load rather than skipping the tests.
 import { register } from "@minecraft/server-gametest";
 
 const FIXTURE = "nimrodx_template:example";
