@@ -116,6 +116,11 @@ What to keep in `blocks.json` for a custom block:
 - it just must not describe appearance. If a custom block needs nothing but
 appearance, it needs no `blocks.json` entry at all.
 
+**Verified fixed 2026-08-31:** after dropping `textures`, a cleared `ContentLog`
+and a fresh world load carry no `[Blocks][warning]` at all, and the block still
+renders. So the entry was redundant as well as conflicting - removing it cost
+nothing.
+
 **The gate cannot catch this.** `mct validate` reports zero errors on the
 conflicting version: it checks file shape, not component semantics, and the
 conflict is only visible to the game. `./scripts/verify.sh` passed throughout.
