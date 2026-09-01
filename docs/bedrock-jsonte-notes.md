@@ -8,7 +8,7 @@ Per the skill policy in `docs/decisions.md`, this becomes
 things break. Failures and non-obvious details are the point; anything that
 could be guessed from the schema does not need writing down.
 
-As of the `addontemplate:stalker` work, templates **are** generating content:
+As of the `nimrodx_template:stalker` work, templates **are** generating content:
 one entity from two modules. That is one mob, not a variant set, so the bar
 above is approached but not met.
 
@@ -139,23 +139,100 @@ output, same as in `data/jsonte/data.json`.
   Legal JSON, and the game does not care, but do not diff expanded output
   against a hand-written file expecting order to line up.
 
+### Global scope values are substituted ONCE; `$scope` gets another pass
+
+The sharpest gotcha found so far, because it fails **silently into the output**
+rather than erroring.
+
+A value in `packs/data/jsonte/data.json` is substituted once. If that value
+itself contains `{{...}}`, the inner reference is **not** resolved - it reaches
+the generated file verbatim:
+
+```jsonc
+// data/jsonte/data.json
+"studio": "nimrodx",
+"pack": "template",
+"asset_path": "{{studio}}/{{pack}}"      // <- do not do this
+```
+
+```jsonc
+// in a .templ
+"table": "loot_tables/{{asset_path}}/stalker.loot.json"
+```
+
+```json
+"table": "loot_tables/{{studio}}/{{pack}}/stalker.loot.json"
+```
+
+That is valid JSON containing a path that cannot exist, so nothing downstream
+complains - `mct validate` passed it, and only reading the built file caught it.
+
+**It is not a syntax problem.** Writing the value as a single expression
+(`"{{studio + '_' + pack}}"`) behaves identically. What matters is *where the
+value is declared*:
+
+| Declared in | Resolves nested refs? |
+| --- | --- |
+| `data/jsonte/data.json` (global) | **No** - one pass |
+| a `.templ`'s own `"$scope"` | **Yes** |
+| a `.modl` module, used by the extending file | **Yes** |
+
+Modules work because `$extend` merges their content into the template, which is
+then evaluated again - the merged text gets a second pass that the template's
+own literals never get. That asymmetry is the trap: the *same* `{{namespace}}`
+reference resolved correctly in `proximity_aggro.modl` and incorrectly in
+`stalker.behavior.templ`, in the same build.
+
+**The idiom this project uses:** keep primitives global (`studio`, `pack`) and
+derive the joined forms in each template's `$scope`:
+
+```jsonc
+"$scope": {
+  "namespace":  "{{studio + '_' + pack}}",   // nimrodx_template
+  "asset_path": "{{studio + '/' + pack}}"    // nimrodx/template
+}
+```
+
+Four lines repeated per template, in exchange for one place to change the
+project identity. Modules then read `{{namespace}}` from the extending file's
+scope and need no changes.
+
+**Check the built output, not the template**, after any change to a derived
+value. `grep -rl "{{" build/` should return nothing.
+
 ### Filter ordering - now observed, not inferred
 
 Previously listed as unverified reasoning. jsonte now demonstrably runs first
 and later filters consume its output: `name_ninja` generated
-`entity.addontemplate:stalker.name` and
-`item.spawn_egg.entity.addontemplate:stalker.name` for an entity that **only
+`entity.nimrodx_template:stalker.name` and
+`item.spawn_egg.entity.nimrodx_template:stalker.name` for an entity that **only
 exists after jsonte expands `stalker.behavior.templ`**. A filter running before
 jsonte could not have seen that identifier.
 
-### Known wart: `--remove-src` leaves the directory
+### Wart, now fixed: `--remove-src` leaves the directory
 
 `--remove-src` deletes the source `.modl` / `.templ` files but **not** the
-directory holding them, so an empty `modules/` folder ships inside the
-behaviour pack. Minecraft ignores unknown directories, so this is cosmetic,
-but it is not fixable from `config.json` (see "the invocation is fixed"
-above). Options if it ever matters: put modules in a directory the pack
-legitimately has anyway, or delete it in a `postShell` step.
+directory holding them, so an empty `modules/` folder shipped inside the
+behaviour pack. Minecraft ignores unknown directories, so this looked cosmetic
+and was left alone.
+
+It stopped being cosmetic when `sanity_check` was added: the very first run
+flagged it, correctly, as a folder that is not part of the pack format.
+
+```
+[sanity_check] [WARNING] BP\modules is not a valid folder. Did you mean BP\volumes?
+```
+
+(The "did you mean volumes" suggestion is Levenshtein noise; the detection is
+right.) It is not fixable from `config.json` - see "the invocation is fixed"
+above - so the fix is a local filter, `filters/prune_empty_dirs.py`, which runs
+after jsonte and removes *any* empty directory from the built packs. Generic
+rather than special-cased, because the same wart appears for any filter that
+consumes every file in a folder.
+
+The general lesson: a "cosmetic" build artifact becomes a real cost the moment
+something starts checking, because a permanent warning trains people to ignore
+warnings.
 
 ## Inherited from research - NOT verified here
 

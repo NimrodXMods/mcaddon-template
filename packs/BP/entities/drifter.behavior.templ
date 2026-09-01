@@ -16,13 +16,19 @@
   // means writing the three idle behaviours literally below instead.
   "$extend": ["color_variants"],
   "$scope": {
+    // Derived here, not in data.json: a global scope value is only
+    // substituted once, so a nested {{...}} inside one survives into the
+    // output verbatim. A $scope entry gets the extra evaluation pass.
+    // See docs/bedrock-jsonte-notes.md.
+    "namespace": "{{studio + '_' + pack}}",
+    "asset_path": "{{studio + '/' + pack}}",
     "variants": "{{drifter_variants}}"
   },
   "$template": {
     "format_version": "1.26.40",
     "minecraft:entity": {
       "description": {
-        "identifier": "addontemplate:drifter",
+        "identifier": "{{namespace}}:drifter",
         "is_spawnable": true,
         "is_summonable": true
       },
@@ -30,7 +36,7 @@
         "minecraft:health": { "value": 10, "max": 10 },
         // geometry.pig.v3 on the RP side is 64x32.
         "minecraft:collision_box": { "height": 0.9, "width": 0.9 },
-        "minecraft:type_family": { "family": ["addontemplate", "drifter", "mob"] },
+        "minecraft:type_family": { "family": ["{{namespace}}", "drifter", "mob"] },
         "minecraft:physics": {},
         "minecraft:pushable_by_entity": {},
         "minecraft:pushable_by_block": {},
@@ -58,7 +64,7 @@
         "minecraft:jump.static": {},
         "minecraft:behavior.float": { "priority": 0 },
         "minecraft:despawn": { "despawn_from_distance": {} },
-        "minecraft:loot": { "table": "loot_tables/addontemplate/template/drifter.loot.json" }
+        "minecraft:loot": { "table": "loot_tables/{{asset_path}}/drifter.loot.json" }
       }
     }
   }

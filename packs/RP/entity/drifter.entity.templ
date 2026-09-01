@@ -6,19 +6,27 @@
   // Note the render controller is NOT controller.render.default here - default
   // resolves Texture.default only, which cannot select per-variant. Anything
   // with variants needs its own controller.
+  "$scope": {
+    // Derived here, not in data.json: a global scope value is only
+    // substituted once, so a nested {{...}} inside one survives into the
+    // output verbatim. A $scope entry gets the extra evaluation pass.
+    // See docs/bedrock-jsonte-notes.md.
+    "namespace": "{{studio + '_' + pack}}",
+    "asset_path": "{{studio + '/' + pack}}"
+  },
   "$template": {
     "format_version": "1.10.0",
     "minecraft:client_entity": {
       "description": {
-        "identifier": "addontemplate:drifter",
+        "identifier": "{{namespace}}:drifter",
         "materials": { "default": "entity_alphatest" },
         "textures": {
           "{{#drifter_variants as v}}": {
-            "{{v}}": "textures/addontemplate/template/entity/drifter_{{v}}"
+            "{{v}}": "textures/{{asset_path}}/entity/drifter_{{v}}"
           }
         },
         "geometry": { "default": "geometry.pig.v3" },
-        "render_controllers": ["controller.render.drifter"],
+        "render_controllers": ["controller.render.{{namespace}}.drifter"],
         "spawn_egg": { "base_color": "#2f8fbf", "overlay_color": "#bf8f2f" }
       }
     }

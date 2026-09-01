@@ -1,141 +1,173 @@
 {
-  "$schema": "https://raw.githubusercontent.com/Bedrock-OSS/regolith-schemas/main/config/unified.json",
-  "author": "NimrodXMods",
-  "name": "AddOnTemplate",
-  "packs": {
-    "behaviorPack": "./packs/BP",
-    "resourcePack": "./packs/RP"
-  },
-  "regolith": {
-    "dataPath": "./packs/data",
-    "filterDefinitions": {
-      "bump_manifest": {
-        "url": "github.com/Bedrock-OSS/regolith-filters",
-        "version": "1.1.1"
-      },
-      "jsonte": {
-        "url": "github.com/MCDevKit/regolith-library",
-        "version": "2.16.0"
-      },
-      "name_ninja": {
-        "url": "github.com/Bedrock-OSS/regolith-filters",
-        "version": "1.3.1"
-      },
-      "texture_list": {
-        "url": "github.com/Bedrock-OSS/regolith-filters",
-        "version": "1.1.3"
-      }
-    },
-    "formatVersion": "1.8.0",
-    "profiles": {
-      "default": {
-        "export": {
-          "build": "standard",
-          "readOnly": false,
-          "target": "development"
-        },
-        "filters": [
-          {
-            "filter": "jsonte"
-          },
-          {
-            "filter": "texture_list"
-          },
-          {
-            "filter": "name_ninja",
-            "settings": {
-              "languages": ["en_US.lang"],
-              "overwrite": true,
-              "sort": true,
-              "entities": {
-                "auto_name": true
-              },
-              "blocks": {
-                "auto_name": true
-              },
-              "items": {
-                "auto_name": true
-              },
-              "spawn_eggs": {
-                "auto_name": true
-              }
-            }
-          }
-        ]
-      },
-      "ci": {
-        "export": {
-          "build": "standard",
-          "readOnly": false,
-          "target": "local"
-        },
-        "filters": [
-          {
-            "filter": "jsonte"
-          },
-          {
-            "filter": "texture_list"
-          },
-          {
-            "filter": "name_ninja",
-            "settings": {
-              "languages": ["en_US.lang"],
-              "overwrite": true,
-              "sort": true,
-              "entities": {
-                "auto_name": true
-              },
-              "blocks": {
-                "auto_name": true
-              },
-              "items": {
-                "auto_name": true
-              },
-              "spawn_eggs": {
-                "auto_name": true
-              }
-            }
-          }
-        ]
-      },
-      "build": {
-        "export": {
-          "build": "standard",
-          "readOnly": false,
-          "target": "local"
-        },
-        "filters": [
-          {
-            "filter": "jsonte"
-          },
-          {
-            "filter": "texture_list"
-          },
-          {
-            "filter": "name_ninja",
-            "settings": {
-              "languages": ["en_US.lang"],
-              "overwrite": true,
-              "sort": true,
-              "entities": {
-                "auto_name": true
-              },
-              "blocks": {
-                "auto_name": true
-              },
-              "items": {
-                "auto_name": true
-              },
-              "spawn_eggs": {
-                "auto_name": true
-              }
-            }
-          },
-          {
-            "filter": "bump_manifest"
-          }
-        ]
-      }
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/Bedrock-OSS/regolith-schemas/main/config/unified.json",
+	"author": "NimrodXMods",
+	"name": "AddOnTemplate",
+	"packs": {
+		"behaviorPack": "./packs/BP",
+		"resourcePack": "./packs/RP"
+	},
+	"regolith": {
+		"dataPath": "./packs/data",
+		"filterDefinitions": {
+			"bump_manifest": {
+				"url": "github.com/Bedrock-OSS/regolith-filters",
+				"version": "1.1.1"
+			},
+			"jsonte": {
+				"url": "github.com/MCDevKit/regolith-library",
+				"version": "2.16.0"
+			},
+			"name_ninja": {
+				"url": "github.com/Bedrock-OSS/regolith-filters",
+				"version": "1.3.1"
+			},
+			"prune_empty_dirs": {
+				"runWith": "python",
+				"script": "./filters/prune_empty_dirs.py"
+			},
+			"sanity_check": {
+				"url": "github.com/MCDevKit/regolith-library",
+				"version": "1.1.0"
+			},
+			"texture_list": {
+				"url": "github.com/Bedrock-OSS/regolith-filters",
+				"version": "1.1.3"
+			}
+		},
+		"formatVersion": "1.8.0",
+		"profiles": {
+			"build": {
+				"export": {
+					"build": "standard",
+					"readOnly": false,
+					"target": "local"
+				},
+				"filters": [
+					{
+						"filter": "jsonte"
+					},
+					{
+						"filter": "texture_list"
+					},
+					{
+						"filter": "name_ninja",
+						"settings": {
+							"blocks": {
+								"auto_name": true
+							},
+							"entities": {
+								"auto_name": true
+							},
+							"items": {
+								"auto_name": true
+							},
+							"languages": [
+								"en_US.lang"
+							],
+							"overwrite": true,
+							"sort": true,
+							"spawn_eggs": {
+								"auto_name": true
+							}
+						}
+					},
+					{
+						"filter": "bump_manifest"
+					},
+					{
+						"filter": "prune_empty_dirs"
+					},
+					{
+						"filter": "sanity_check"
+					}
+				]
+			},
+			"ci": {
+				"export": {
+					"build": "standard",
+					"readOnly": false,
+					"target": "local"
+				},
+				"filters": [
+					{
+						"filter": "jsonte"
+					},
+					{
+						"filter": "texture_list"
+					},
+					{
+						"filter": "name_ninja",
+						"settings": {
+							"blocks": {
+								"auto_name": true
+							},
+							"entities": {
+								"auto_name": true
+							},
+							"items": {
+								"auto_name": true
+							},
+							"languages": [
+								"en_US.lang"
+							],
+							"overwrite": true,
+							"sort": true,
+							"spawn_eggs": {
+								"auto_name": true
+							}
+						}
+					},
+					{
+						"filter": "prune_empty_dirs"
+					},
+					{
+						"filter": "sanity_check"
+					}
+				]
+			},
+			"default": {
+				"export": {
+					"build": "standard",
+					"readOnly": false,
+					"target": "development"
+				},
+				"filters": [
+					{
+						"filter": "jsonte"
+					},
+					{
+						"filter": "texture_list"
+					},
+					{
+						"filter": "name_ninja",
+						"settings": {
+							"blocks": {
+								"auto_name": true
+							},
+							"entities": {
+								"auto_name": true
+							},
+							"items": {
+								"auto_name": true
+							},
+							"languages": [
+								"en_US.lang"
+							],
+							"overwrite": true,
+							"sort": true,
+							"spawn_eggs": {
+								"auto_name": true
+							}
+						}
+					},
+					{
+						"filter": "prune_empty_dirs"
+					},
+					{
+						"filter": "sanity_check"
+					}
+				]
+			}
+		}
+	}
 }

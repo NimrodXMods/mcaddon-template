@@ -31,7 +31,7 @@ lookalike and the aggro-vs-flee ambiguity.
 
 ## 1. Drifter colour variants  (highest - wholly unverified content)
 
-`/summon addontemplate:drifter` several times, or use the spawn egg.
+`/summon nimrodx_template:drifter` several times, or use the spawn egg.
 
 The whole chain is untested end to end: `randomize` -> `minecraft:variant` ->
 `query.variant` -> `Array.skins[...]` -> texture. It is also the first custom

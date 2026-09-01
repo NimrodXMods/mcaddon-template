@@ -2,9 +2,9 @@
   "format_version": "1.10.0",
   "minecraft:client_entity": {
     "description": {
-      "identifier": "addontemplate:example_entity",
+      "identifier": "nimrodx_template:example_entity",
       "materials": { "default": "entity_alphatest" },
-      "textures": { "default": "textures/addontemplate/template/entity/example_entity" },
+      "textures": { "default": "textures/nimrodx/template/entity/example_entity" },
       "geometry": { "default": "geometry.zombie.v1.8" },
       "render_controllers": ["controller.render.default"],
       "spawn_egg": { "base_color": "#4a7c3f", "overlay_color": "#2d4a26" }

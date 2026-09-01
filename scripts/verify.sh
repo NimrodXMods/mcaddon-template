@@ -2,8 +2,15 @@
 #
 # Mandatory completion gate for this project.
 #
-# Compiles with regolith, validates with mct, and fails loudly on any error.
-# No task is "done" until this exits 0.
+# Compiles with regolith, validates the COMPILED OUTPUT with mct, and fails
+# loudly on any error. No task is "done" until this exits 0.
+#
+# Validation targets build/, not packs/. packs/ is source: it holds .templ and
+# .modl files that the game never loads and that mct cannot interpret as
+# content, while the .json files jsonte generates from them exist only in the
+# export target. Validating source therefore inspected files Minecraft never
+# sees and skipped every file it does - the entities, render controllers and
+# client entities that templates produce were invisible to this gate.
 #
 # Checks BOTH the mct exit code and the counts inside the JSON report. mct
 # does return a nonzero code on validation errors (4, observed), but the
@@ -18,7 +25,14 @@ REPORTS="reports"
 
 # Optional profile argument. Default profile exports to com.mojang; CI has no
 # com.mojang, so CI passes a profile whose export target is "local".
-PROFILE="${1:-}"
+PROFILE="${1:-default}"
+
+# Validation reads the export target, so it needs a profile that exports
+# locally. A "development"-target profile installs straight into com.mojang and
+# leaves nothing in build/ to validate, so in that case we build a second time
+# with a local target. Same filters, same content - only the destination
+# differs - so the artifact validated is what the development target deployed.
+VALIDATE_PROFILE="ci"
 
 # Clear the export target BEFORE running, not only after. Regolith refuses to
 # overwrite files in the target it did not create ("Deletion safety check ...
@@ -29,14 +43,31 @@ PROFILE="${1:-}"
 rm -rf build out
 
 echo "==> regolith run ${PROFILE}"
-regolith run ${PROFILE}
+regolith run "${PROFILE}"
 
-# A "local"-target profile exports into build/, which mct would then scan
-# alongside packs/ - double-validating everything and doubling error counts.
-# build/ is derived and gitignored; produce release artifacts with
-# `mct exportaddon` as a separate step, not from here. out/ is mct's own
-# default output directory and inflates the scan the same way.
-rm -rf build out
+TARGET="$(node -e '
+const c = require("./config.json");
+const p = (c.regolith.profiles || {})[process.argv[1]];
+process.stdout.write(p && p.export ? String(p.export.target) : "");
+' "$PROFILE")"
+
+if [ "$TARGET" != "local" ]; then
+  echo
+  echo "==> regolith run ${VALIDATE_PROFILE}   (profile \"${PROFILE}\" exports to \"${TARGET}\"; need a local build to validate)"
+  regolith run "${VALIDATE_PROFILE}"
+fi
+
+if [ ! -d build ]; then
+  echo
+  echo "FAIL: no build/ to validate after running regolith."
+  echo "Validation reads the compiled output, not packs/. Check that the"
+  echo "profile used has an export target of \"local\"."
+  exit 1
+fi
+
+# out/ is mct's own default output directory; if one is lying around it gets
+# scanned too and inflates every count.
+rm -rf out
 
 echo
 echo "==> mct validate addon"
@@ -49,7 +80,7 @@ mkdir -p "$REPORTS"
 MCT_TIMEOUT="${MCT_TIMEOUT:-60}"
 
 set +e
-timeout "$MCT_TIMEOUT" mct validate addon -i . -ot json -o "$REPORTS" --threads 8
+timeout "$MCT_TIMEOUT" mct validate addon -i build -ot json -o "$REPORTS" --threads 8
 MCT_EXIT=$?
 set -e
 

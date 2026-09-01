@@ -461,7 +461,7 @@ Writing the skill first encodes guesses that read as authority; see
 
 | Planned skill | Notes file | Covers |
 | --- | --- | --- |
-| `bedrock-verify` | `docs/bedrock-verify-notes.md` | The gate: run it, read `reports/<project>.mcr.json`, never claim done without a clean run |
+| `bedrock-verify` | `docs/bedrock-verify-notes.md` | The gate: run it, read the globbed `reports/*.mcr.json`, never claim done without a clean run |
 | `bedrock-entity` | `docs/bedrock-entity-notes.md` | Component groups and events as a state chart; spawn rules |
 | `bedrock-block` | `docs/bedrock-block-notes.md` | States, permutations, culling, and the blocks.json / terrain_texture.json / textures three-way contract |
 | `bedrock-item` | `docs/bedrock-item-notes.md` | Item components, the icon/texture contract, recipes |
@@ -522,14 +522,14 @@ Why this shape rather than narrowing the deny to specific paths:
   through Bash, so gating the Bash command is where the real control is. The
   extension deny is what stops an agent clobbering a real texture with text.
 
-Placeholder textures go in `packs/RP/textures/addontemplate/common/entity/`.
+Placeholder textures go in `packs/RP/textures/nimrodx/common/entity/`.
 **Both halves of the CADDONREQ rule are confirmed by experiment here**
 (2026-08-30), not just documented:
 
 | Path | `./scripts/verify.sh ci` |
 | --- | --- |
-| `addontemplate/common/entity/*.png` | clean; content file count 16 -> 17, so it really was scanned |
-| `addontemplate/testdir/entity/*.png` | **CADDONREQ108** - "Secondary folder 'addontemplate' in textures has more than one subfolder (besides 'common')" |
+| `nimrodx/common/entity/*.png` | clean; content file count 16 -> 17, so it really was scanned |
+| `nimrodx/testdir/entity/*.png` | **CADDONREQ108** - "Secondary folder 'nimrodx_template' in textures has more than one subfolder (besides 'common')" |
 
 So `common` is genuinely special-cased, and a second ordinary subfolder fails
 the gate. Note `magick` is the ImageMagick entry point - on Windows,
@@ -670,6 +670,9 @@ my-addon/
 │       ├── jsonte/             # data.json - inputs consumed by templates
 │       └── bump_manifest/
 │
+├── filters/                    # local regolith filters (runWith + script)
+│   └── prune_empty_dirs.py
+│
 ├── scripts/
 │   ├── verify.sh
 │   └── deploy.sh
@@ -696,8 +699,10 @@ compiles only `BP/` and `RP/`, so a `.modl` module placed in `packs/data/jsonte/
 is never loaded and fails silently. `data/jsonte` is a variable *scope* path,
 not a module search path. See `docs/bedrock-jsonte-notes.md`.
 
-`../mcbe-schemas` is kept outside the project on purpose: anything under the
-project root gets walked by `mct validate`, and the schema clone's ~1200 files
+`../mcbe-schemas` is kept outside the project on purpose. The gate now
+validates `build/` rather than the project root, so the clone is no longer in
+the scan path of `verify.sh` — but keep it outside anyway: any ad-hoc
+`mct validate -i .` still walks it, and the schema clone's ~1200 files
 swamp the report (1221 files scanned vs 8) and emit spurious
 `Could not load biome definition: SyntaxError` errors - mct tries to read the
 biome *schemas* as biome *definitions*. Reproduce with
@@ -848,7 +853,9 @@ Then edit `config.json` so `packs` points at the mct-generated folders:
         "filters": [
           { "filter": "jsonte" },
           { "filter": "texture_list" },
-          { "filter": "name_ninja", "settings": { "language": "en_US.lang" } }
+          { "filter": "name_ninja", "settings": { "language": "en_US.lang" } },
+          { "filter": "prune_empty_dirs" },
+          { "filter": "sanity_check" }
         ],
         "export": { "target": "development", "readOnly": false }
       },
@@ -857,7 +864,9 @@ Then edit `config.json` so `packs` points at the mct-generated folders:
           { "filter": "jsonte" },
           { "filter": "texture_list" },
           { "filter": "name_ninja" },
-          { "filter": "bump_manifest" }
+          { "filter": "bump_manifest" },
+          { "filter": "prune_empty_dirs" },
+          { "filter": "sanity_check" }
         ],
         "export": { "target": "local", "readOnly": false }
       }
@@ -870,7 +879,18 @@ Then edit `config.json` so `packs` points at the mct-generated folders:
 
 Filter order matters — filters run top to bottom. Template expansion (jsonte)
 must precede anything that scans the resulting files (texture_list,
-name_ninja).
+name_ninja), and checking filters (`sanity_check`) go **last**, so they see the
+final state.
+
+`prune_empty_dirs` is a **local** filter — no repo, no resolver entry. Local
+filters are declared directly in `filterDefinitions`:
+
+```json
+"prune_empty_dirs": { "runWith": "python", "script": "./filters/prune_empty_dirs.py" }
+```
+
+`runWith` also accepts `shell`, `nodejs`, `deno`, `bun`, `exe`, `java`, `nim`
+and `dotnet`, and `script` is relative to `config.json`.
 
 Use a short project name like `dragons`, not `My Dragon Adventure Map` — with
 the `development` export target the project name becomes the export folder
@@ -884,6 +904,7 @@ regolith install jsonte --profile=default
 regolith install texture_list --profile=default
 regolith install name_ninja --profile=default
 regolith install bump_manifest          # build profile only
+regolith install sanity_check --profile=default
 ```
 
 **Always pass `--profile=default`.** Without it, `regolith install` populates
@@ -927,8 +948,17 @@ short. Nothing is done until it exits 0.
 MCT_TIMEOUT=120 ./scripts/verify.sh
 ```
 
-Why the obvious implementation is wrong, in brief: the report is
-`reports/<project>.mcr.json` (not `info.json`) and contains no
+**It validates `build/`, not `packs/`.** `packs/` is source and holds `.templ`
+and `.modl` files the game never loads, while everything jsonte generates
+exists only in the export target — so validating source both inspected files
+Minecraft never sees and skipped every templated file. Switching to the
+compiled output surfaced three latent errors on the first run. A profile whose
+export target is not `local` leaves nothing in `build/`, so the gate builds a
+second time with `ci` to have something to validate.
+
+Why the obvious implementation is wrong, in brief: the report is named from the
+input folder (`reports/build.mcr.json`; **glob it, never hardcode**) and
+contains no
 `"type":"error"` string — errors live in `info.errorCount` and in items with
 `"iTp": 3`, so the obvious grep matches nothing and passes every broken
 build. The gate therefore checks the mct exit code **and** the report
@@ -1083,7 +1113,7 @@ For a GameTest world: `mct exportworld -i . -o build`.
 | `Deletion safety check for ... failed. File is not on the list of files created by Regolith` | `regolith clean` wiped `.regolith/cache/edited_files.json`, which is the record of what regolith wrote into each export target. Without it regolith refuses to overwrite an export it can no longer prove it owns. Bites when a `local`-target `build/` survives a clean. **Fix: delete the export directory** (`build/`, or the `com.mojang` `development_*_packs` folder) and re-run. `scripts/verify.sh` self-heals because it now removes `build`/`out` **before** every run as well as after - removing only afterwards was not enough, since a run that never reached the cleanup left the export behind for the next one to trip over. |
 | Extension flags valid code | Blockception avoids experimental features by design. mct is the authority. |
 | CADDONREQ102/104 on a **loot table** | The Cooperative Add-On folder rule is not textures-only. `loot_tables/entities/foo.json` - **vanilla's own layout** - fails, because `entities` is a common term. Use `loot_tables/<creatorshortname>/<mygamename>/<file>.json`. Note `spawn_rules/` is *not* subject to this and passes flat, so the rule is per-folder: check rather than assume. |
-| Texture validation errors CADDONREQ102/104/108 | Cooperative Add-On rules: textures may not sit loose in common-named folders. Required layout is `textures/<creatorshortname>/<gamename>/blocks&#124;items&#124;entity/*.png` (one of those three), and `<creatorshortname>` may contain exactly **one** subfolder (plus optionally `common`). See the template under `packs/RP/textures/addontemplate/template/`. |
+| Texture validation errors CADDONREQ102/104/108 | Cooperative Add-On rules: textures may not sit loose in common-named folders. Required layout is `textures/<creatorshortname>/<gamename>/blocks&#124;items&#124;entity/*.png` (one of those three), and `<creatorshortname>` may contain exactly **one** subfolder (plus optionally `common`). See the template under `packs/RP/textures/nimrodx/template/`. |
 | Generated `.lang` file is empty | `name_ninja` emits nothing unless a `name` field is present in the BP description or `auto_name` is enabled per type. It needs separate `entities`/`blocks`/`items`/`spawn_eggs` settings blocks - enabling three of the four silently omits the fourth. |
 | Item is **invisible** (not magenta) | The `minecraft:icon` component shape is wrong, so nothing resolved. Magenta means a texture path resolved but the file is missing; invisible means the component itself was rejected. `minecraft:icon` is either a bare string or `{"textures": {"default": "<key>"}}` - `textures` plural, `default` required, `additionalProperties: false`. `{"texture": "x"}` is silently invalid. |
 | Validation passes but content is broken in game | `mct validate` does **not** deep-validate component payloads against the schemas. It checks manifests, pack conventions and file structure. A malformed component shape reports zero errors. Read `../mcbe-schemas/behavior/<type>/<type>.json` before writing a component - this is what rule 4a exists for, and it is easy to skip. |

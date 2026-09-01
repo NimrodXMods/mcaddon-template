@@ -4,6 +4,6 @@
   "padding": 8,
   "num_mip_levels": 4,
   "texture_data": {
-    "example_block": { "textures": "textures/addontemplate/template/blocks/example_block" }
+    "example_block": { "textures": "textures/nimrodx/template/blocks/example_block" }
   }
 }

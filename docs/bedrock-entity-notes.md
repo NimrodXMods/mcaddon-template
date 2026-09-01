@@ -8,7 +8,7 @@ Per the skill policy in `docs/decisions.md`, this becomes
 things break. Failures and non-obvious details are the point; anything that
 could be guessed from the schema does not need writing down.
 
-**The content bar is now met** (2026-08-30). `addontemplate:stalker` has a
+**The content bar is now met** (2026-08-30). `nimrodx_template:stalker` has a
 three-state behaviour machine, spawn rules and a loot table, and all three are
 confirmed in game - it wanders, aggros on proximity, flees on damage, spawns
 naturally, and drops loot.
@@ -52,14 +52,14 @@ Worked example, from `stalker`:
 ```json
 "minecraft:environment_sensor": {                      // component
   "triggers": [{                                       // trigger
-    "event": "addontemplate:become_aggro",
+    "event": "nimrodx_template:become_aggro",
     "target": "self",
     "filters": { "test": "distance_to_nearest_player",
                  "operator": "<=", "value": 4 }
   }]
 },
 
-"addontemplate:become_aggro": {                        // event
+"nimrodx_template:become_aggro": {                        // event
   "remove": { "component_groups": ["calm"] },          // actions
   "add":    { "component_groups": ["aggro"] }
 }
@@ -129,10 +129,10 @@ From `stalker`:
 
 ```
 minecraft:entity_spawned    -> add:    [calm]
-addontemplate:become_aggro  -> remove: [calm]         add: [aggro]
-addontemplate:calm_down     -> remove: [aggro]        add: [calm]
-addontemplate:flee          -> remove: [calm, aggro]  add: [fleeing]
-addontemplate:stop_fleeing  -> remove: [fleeing]      add: [calm]
+nimrodx_template:become_aggro  -> remove: [calm]         add: [aggro]
+nimrodx_template:calm_down     -> remove: [aggro]        add: [calm]
+nimrodx_template:flee          -> remove: [calm, aggro]  add: [fleeing]
+nimrodx_template:stop_fleeing  -> remove: [fleeing]      add: [calm]
 ```
 
 `flee` names both `calm` and `aggro` because it can be reached from either.
@@ -216,10 +216,10 @@ has: `minecraft:movement.basic`, `minecraft:navigation.walk`,
 `minecraft:jump.static`, `minecraft:attack`, `minecraft:behavior.float`, and a
 `minecraft:movement` value (which lives per-state, see below).
 
-`example_entity` also declares `type_family: ["addontemplate", "inanimate"]`.
+`example_entity` also declares `type_family: ["nimrodx_template", "inanimate"]`.
 Copying that onto a mob is wrong - vanilla filters key off family, and a thing
 that walks and attacks is not inanimate. `stalker` uses
-`["addontemplate", "stalker", "monster", "mob"]`.
+`["nimrodx_template", "stalker", "monster", "mob"]`.
 
 ### Schema locations are not where you would guess
 
@@ -234,7 +234,7 @@ component does not exist.
 Component groups behave as states and events are the only transitions. A
 group that no event adds is dead code, and nothing warns you - not the engine,
 not `mct validate`. This was the project's most-repeated inherited claim;
-`addontemplate:stalker` confirmed the state-chart behaviour in game on
+`nimrodx_template:stalker` confirmed the state-chart behaviour in game on
 2026-08-30.
 
 Read "state" here as an authored convention, not an engine rule - the groups
@@ -249,7 +249,7 @@ group, so an attack requires the whole chain to have executed -
 ```
 /summon -> minecraft:entity_spawned fired -> added `calm`
         -> calm's environment_sensor existed and evaluated
-        -> distance 0 <= aggro_range -> fired addontemplate:become_aggro
+        -> distance 0 <= aggro_range -> fired nimrodx_template:become_aggro
         -> removed `calm`, added `aggro` -> melee_attack existed -> hit player
 ```
 
@@ -325,10 +325,10 @@ unaffected; the drop is **per-component**, not whole-file.
 Bumping this project from 1.20.80 to 1.26.40 broke **both** entities outright:
 
 ```
-addontemplate:stalker | minecraft:entity |
+nimrodx_template:stalker | minecraft:entity |
   -> components -> minecraft:pushable: this component was found in the input,
      but is not present in the Schema
-ERROR: Entity 'addontemplate:stalker' failed to load from JSON: parse errors
+ERROR: Entity 'nimrodx_template:stalker' failed to load from JSON: parse errors
 ```
 
 `minecraft:pushable` was **split** somewhere between 1.26.0 and 1.26.40.
@@ -429,7 +429,7 @@ because it is usually described as a texture rule. Copying vanilla's own layout
 
 The working layout is the same shape as textures -
 `loot_tables/<creatorshortname>/<mygamename>/<file>.json`, here
-`loot_tables/addontemplate/template/stalker.loot.json`.
+`loot_tables/nimrodx/template/stalker.loot.json`.
 
 **That non-vanilla path resolves at runtime** - confirmed in game, a killed
 stalker dropped from the table. Worth stating because moving off the layout

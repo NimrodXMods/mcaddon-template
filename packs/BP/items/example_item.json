@@ -2,7 +2,7 @@
   "format_version": "1.26.30",
   "minecraft:item": {
     "description": {
-      "identifier": "addontemplate:example_item",
+      "identifier": "nimrodx_template:example_item",
       "menu_category": {
         "category": "items"
       }

@@ -44,6 +44,57 @@ a clean export, the one after keeps `mct validate` from scanning `build/`
 alongside `packs/` and double-counting everything.
 
 
+### Validate the compiled output, not `packs/`
+
+**Changed 2026-08-31.** The gate ran `mct validate addon -i .` with `build/`
+deleted, which meant it validated **`packs/` - the source**. That is the wrong
+input in both directions:
+
+- `packs/` holds `.templ` and `.modl` files the game never loads and mct cannot
+  interpret as content.
+- The `.json` that jsonte generates from them exists **only in the export
+  target**, so every templated file was invisible to the gate - both entities,
+  the drifter client entity, and the render controller.
+
+The gate now runs `mct validate addon -i build`. The effect was immediate: three
+errors appeared that source validation had never once reported, all of them in
+generated files.
+
+```
+[CADDONIREQ112] (/AddOnTemplate_bp/entities/drifter.behavior.json)
+  JSON namespaced identifier is not in the expected form of
+  creatorshortname_projectshortname:myitem: addontemplate:drifter
+[CADDONIREQ112] (/AddOnTemplate_bp/entities/stalker.behavior.json)
+[CADDONIREQ141] (/AddOnTemplate_rp/render_controllers/drifter.render_controllers.json)
+  Resource pack render controller name section is not in the expected form of
+  controller.render.creatorshortname_projectshortname: controller.render.drifter
+```
+
+These were not new breakage - they had been latent since the entities were
+written, and were invisible only because the gate inspected `.templ` source
+instead of the compiled `.json`. They are Cooperative Add-On requirements, the
+same family as the `CADDONREQ108` loot-table path error, and they say the
+namespace must be `<studio>_<pack>`. Ours was the single word `addontemplate`.
+
+**Fixed the same day** by renaming the namespace to `nimrodx_template` and the
+asset directories to `nimrodx/template/`; see `docs/decisions.md`. The gate is
+green again. Keep the error text above: it is the only worked example of what
+this class of failure looks like, and it is the evidence for validating output
+rather than source.
+
+Two consequences of the switch:
+
+- **The report filename changed.** It is named from the *input folder*, so it is
+  now `reports/build.mcr.json` rather than `reports/<project>.mcr.json`. The
+  gate globs `reports/*.mcr.json`, so this did not break it - which is exactly
+  why the rule below says glob rather than hardcode.
+- **A profile that does not export locally cannot be validated.** The
+  `development` target installs straight into `com.mojang` and leaves nothing in
+  `build/`. `verify.sh` detects the target from `config.json` and, when it is
+  not `local`, runs the `ci` profile a second time purely to materialise
+  something to validate. Same filters and same content - only the destination
+  differs - so what gets validated is what the development target deployed.
+
 ### The gate does not cover `format_version`, and the Content Log does
 
 `mct validate` reported **0 errors** on an entity that could not load in game
@@ -107,7 +158,11 @@ change worked.**
 - `mct validate` exits nonzero (4 observed) but the gate checks exit code *and*
   report counts, so a change in either cannot silently disable it.
 - Measuring the exit code through a pipe gives you the pipe's status, not mct's.
-- Delete `build/` and `out/` first - mct scans them and doubles every count.
+- `out/` is mct's own default output directory; delete it first or it gets
+  scanned too and inflates every count. (Deleting `build/` before *validating*
+  was correct only while the gate validated `packs/`; it is now the thing being
+  validated. It is still cleared before the regolith *run* - see the deletion
+  safety note above.)
 - `behaviorPackManifestCount` / `resourcePackManifestCount` read `0` even on a
   healthy project. Not a health signal. `errorCount` is.
 - Recommendations (`iTp: 6`) and `warningCount` never reach `errorCount`; print
@@ -120,6 +175,29 @@ change worked.**
 - `mct validate addon -i packs` also works and catches the same errors, but
   reports paths without the `packs/` prefix. `--threads` defaults to 8, caps
   at 16.
+
+### Filters now carry part of the gate
+
+Two filters were added 2026-08-31, moving checks off the shell script and into
+the pipeline where they see the compiled pack:
+
+- **`sanity_check`** (MCDevKit, `runWith: python`, 1.1.0) - cross-file and
+  filesystem checks mct does not make: missing sound files referenced by
+  `sound_definitions.json`, missing translations across `.lang` files,
+  Levenshtein-based folder/file misspelling detection, duplicated recipe IDs,
+  BOM removal, and entity property `range`/`default` type fixes. Defaults are
+  `fail_on_errors: true`, `fail_on_warnings: false`, so everything it currently
+  emits is advisory. Runs last in every profile, per its own readme.
+  **Caveat:** its `duplicated_recipe_ids` check is dead code upstream - it only
+  calls `recipe_ids.add(id)` inside the duplicate branch, so the set is never
+  populated and no duplicate can be detected. Do not rely on it.
+- **`prune_empty_dirs`** (local, `filters/prune_empty_dirs.py`) - removes empty
+  directories from the built packs. Written because `sanity_check` immediately
+  and correctly flagged `BP/modules`, the empty folder jsonte's `--remove-src`
+  leaves behind. Fixing the cause beat disabling the check: a warning on every
+  build is how a team learns to ignore warnings.
+
+`sanity_check` finding a real issue on its first run is the argument for it.
 
 ## mct behaviour the gate has to work around
 

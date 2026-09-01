@@ -10,10 +10,18 @@
   // Note the format_version: render controllers are on the 1.8.0 numbering
   // line, like spawn rules. Not the BP entity's 1.26.40, not the RP client
   // entity's 1.10.0. Copied from vanilla controller.render.rabbit.
+  "$scope": {
+    // Derived here, not in data.json: a global scope value is only
+    // substituted once, so a nested {{...}} inside one survives into the
+    // output verbatim. A $scope entry gets the extra evaluation pass.
+    // See docs/bedrock-jsonte-notes.md.
+    "namespace": "{{studio + '_' + pack}}",
+    "asset_path": "{{studio + '/' + pack}}"
+  },
   "$template": {
     "format_version": "1.8.0",
     "render_controllers": {
-      "controller.render.drifter": {
+      "controller.render.{{namespace}}.drifter": {
         "arrays": {
           "textures": {
             "Array.skins": "{{drifter_variants.map(v => 'Texture.' + v)}}"

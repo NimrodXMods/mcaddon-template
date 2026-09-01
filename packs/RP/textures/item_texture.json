@@ -2,6 +2,6 @@
   "resource_pack_name": "AddOnTemplate",
   "texture_name": "atlas.items",
   "texture_data": {
-    "example_item": { "textures": "textures/addontemplate/template/items/example_item" }
+    "example_item": { "textures": "textures/nimrodx/template/items/example_item" }
   }
 }

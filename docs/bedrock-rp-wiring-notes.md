@@ -29,7 +29,7 @@ highest-failure area in Bedrock add-ons.
   ```bash
   magick -size 8x4 pattern:gray50 -scale 800% -fuzz 20% \
     -fill "#1E64C8" -opaque black -fill "#F5D000" -opaque white \
-    PNG32:packs/RP/textures/addontemplate/template/entity/stalker.png
+    PNG32:packs/RP/textures/nimrodx/template/entity/stalker.png
   ```
 
   `pattern:gray50` is a 2x2 alternating tile, so an 8x4 canvas gives a clean

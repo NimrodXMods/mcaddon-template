@@ -9,6 +9,12 @@
   // events came with them.
   "$extend": ["wandering", "proximity_aggro", "flee_on_damage"],
   "$scope": {
+    // Derived here, not in data.json: a global scope value is only
+    // substituted once, so a nested {{...}} inside one survives into the
+    // output verbatim. A $scope entry gets the extra evaluation pass.
+    // See docs/bedrock-jsonte-notes.md.
+    "namespace": "{{studio + '_' + pack}}",
+    "asset_path": "{{studio + '/' + pack}}",
     "aggro_range": 4,
     "calm_range": 12,
     "calm_speed": 0.25,
@@ -20,7 +26,7 @@
     "format_version": "1.26.40",
     "minecraft:entity": {
       "description": {
-        "identifier": "addontemplate:stalker",
+        "identifier": "{{namespace}}:stalker",
         "is_spawnable": true,
         "is_summonable": true
       },
@@ -34,7 +40,7 @@
         "minecraft:collision_box": { "height": 1.9, "width": 0.6 },
         // NOT "inanimate" - example_entity claims that, but a mob that walks
         // and attacks is not inanimate and vanilla filters key off this.
-        "minecraft:type_family": { "family": ["addontemplate", "stalker", "monster", "mob"] },
+        "minecraft:type_family": { "family": ["{{namespace}}", "stalker", "monster", "mob"] },
         "minecraft:physics": {},
         // Vanilla monsters all carry this, and a mob under
         // population_control: "monster" that never despawns occupies its cap
@@ -63,7 +69,7 @@
         // reject `entities` as a common-term folder here exactly as they do
         // under textures/ (CADDONREQ102/104). Copying vanilla's own layout
         // fails the gate.
-        "minecraft:loot": { "table": "loot_tables/addontemplate/template/stalker.loot.json" }
+        "minecraft:loot": { "table": "loot_tables/{{asset_path}}/stalker.loot.json" }
       }
     }
   }

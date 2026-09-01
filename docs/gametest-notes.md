@@ -17,7 +17,7 @@ packs/BP/
     gametests/
       ExampleTests.js
   structures/
-    addontemplate/
+    nimrodx/
       example.mcstructure     # human-exported, see below
 ```
 
@@ -40,7 +40,7 @@ if you never write one. See `docs/bedrock-regolith-notes.md`.
 
 1. **Every test needs a `.mcstructure`**, and those can only be produced in
    game: build the environment in Creative, `/give @s structure_block`, set the
-   block to Save mode, name it `addontemplate:<name>`, save, then copy the file
+   block to Save mode, name it `nimrodx_template:<name>`, save, then copy the file
    out of `com.mojang/structures/`. An agent cannot author one.
 2. **Beta APIs must be enabled** on the test world, and the BP manifest needs a
    `@minecraft/server-gametest` dependency. **The base template deliberately
@@ -55,12 +55,12 @@ if you never write one. See `docs/bedrock-regolith-notes.md`.
 import { register } from "@minecraft/server-gametest";
 
 register("ExampleTests", "entitySpawns", (test) => {
-  test.spawn("addontemplate:example_entity", { x: 1, y: 2, z: 1 });
-  test.assertEntityPresentInArea("addontemplate:example_entity", true);
+  test.spawn("nimrodx_template:example_entity", { x: 1, y: 2, z: 1 });
+  test.assertEntityPresentInArea("nimrodx_template:example_entity", true);
   test.succeed();
 })
   .maxTicks(100)
-  .structureName("addontemplate:example");
+  .structureName("nimrodx_template:example");
 ```
 
 Conventions worth keeping: class names `PascalCase`, test names `camelCase`

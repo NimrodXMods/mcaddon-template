@@ -25,7 +25,7 @@
           "minecraft:environment_sensor": {
             "triggers": [
               {
-                "event": "addontemplate:become_aggro",
+                "event": "{{namespace}}:become_aggro",
                 "target": "self",
                 "filters": {
                   "test": "distance_to_nearest_player",
@@ -58,7 +58,7 @@
           "minecraft:environment_sensor": {
             "triggers": [
               {
-                "event": "addontemplate:calm_down",
+                "event": "{{namespace}}:calm_down",
                 "target": "self",
                 "filters": {
                   "test": "distance_to_nearest_player",
@@ -74,11 +74,11 @@
         "minecraft:entity_spawned": {
           "add": { "component_groups": ["calm"] }
         },
-        "addontemplate:become_aggro": {
+        "{{namespace}}:become_aggro": {
           "remove": { "component_groups": ["calm"] },
           "add": { "component_groups": ["aggro"] }
         },
-        "addontemplate:calm_down": {
+        "{{namespace}}:calm_down": {
           "remove": { "component_groups": ["aggro"] },
           "add": { "component_groups": ["calm"] }
         }

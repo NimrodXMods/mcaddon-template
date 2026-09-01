@@ -31,6 +31,16 @@ direction.
 - Profiles: `default` exports to `com.mojang`; `ci` and `build` export to
   `local` (CI runners have no `com.mojang`). `build` additionally runs
   `bump_manifest`; `default` and `ci` differ only by export target.
+- **Local filters need no repo.** `filterDefinitions` accepts
+  `{"runWith": "python", "script": "./filters/x.py"}` with the path relative to
+  `config.json`; `runWith` also takes `shell`, `nodejs`, `deno`, `bun`, `exe`,
+  `java`, `nim`, `dotnet`. Used here for `prune_empty_dirs`. Regolith looks for
+  a requirements file beside the script (`requirements.txt` for python) and
+  skips the step when there is none.
+- **`regolith install` rewrites `config.json` wholesale.** It retabs the file
+  and sorts every key, so profiles come back alphabetical (`build`, `ci`,
+  `default`) regardless of the order you wrote them in. Harmless, but any
+  hand-formatting of that file is temporary - do not fight it.
 - `.regolith/` is gitignored, so CI needs `regolith install-all` before running
   anything - the filter cache does not exist on a fresh checkout.
 - `regolith run <profile>` selects a profile; bare `regolith run` uses

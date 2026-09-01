@@ -29,7 +29,7 @@
               "cause": "all",
               "deals_damage": "yes",
               "on_damage": {
-                "event": "addontemplate:flee",
+                "event": "{{namespace}}:flee",
                 "target": "self"
               }
             }
@@ -49,18 +49,18 @@
             "time": "{{flee_seconds}}",
             "looping": false,
             "time_down_event": {
-              "event": "addontemplate:stop_fleeing",
+              "event": "{{namespace}}:stop_fleeing",
               "target": "self"
             }
           }
         }
       },
       "events": {
-        "addontemplate:flee": {
+        "{{namespace}}:flee": {
           "remove": { "component_groups": ["calm", "aggro"] },
           "add": { "component_groups": ["fleeing"] }
         },
-        "addontemplate:stop_fleeing": {
+        "{{namespace}}:stop_fleeing": {
           "remove": { "component_groups": ["fleeing"] },
           "add": { "component_groups": ["calm"] }
         }

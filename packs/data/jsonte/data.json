@@ -4,5 +4,16 @@
     // drive files in BOTH packs - the BP variant groups, the RP texture map and
     // the RP render controller all expand from `drifter_variants` below, so
     // they cannot drift out of sync.
+    // The project identity, defined once. Cooperative Add-On requires
+    // identifiers of the form <studio>_<pack>:thing and asset paths of the
+    // form <studio>/<pack>/... - mct enforces the shape (CADDONIREQ112 /
+    // CADDONIREQ141) but cannot tell you the two halves disagree.
+    //
+    // The joined forms are derived in each .templ's own "$scope", NOT here:
+    // a value in this file is substituted only once, so a nested {{...}}
+    // inside one reaches the output verbatim. See docs/bedrock-jsonte-notes.md.
+    "studio": "nimrodx",
+    "pack": "template",
+
     "drifter_variants": ["azure", "amber", "violet", "jade"]
 }

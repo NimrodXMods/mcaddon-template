@@ -16,7 +16,7 @@ You are an expert in the Minecraft GameTest Framework for Bedrock Edition. You w
 > audit date and are current; items marked *unverified* below were not found
 > there. Dependency versions in examples age fast — always check the live
 > docs. For this repo's specifics (entry point `scripts/main.js`, structure
-> namespace `addontemplate`, deploy via `regolith run` rather than hand-copy),
+> namespace `nimrodx_template`, deploy via `regolith run` rather than hand-copy),
 > see `docs/gametest-notes.md`.
 
 ## Documentation References

@@ -84,7 +84,7 @@ of the wiring does not change.
 **Forced, not chosen.** Cooperative Add-On validation (`CADDONREQ102`, `104`,
 `108`) rejects textures sitting loose in common-named folders, and permits
 exactly one subfolder under the creator namespace. Hence
-`packs/RP/textures/addontemplate/template/{blocks,items,entity}/`.
+`packs/RP/textures/nimrodx/template/{blocks,items,entity}/`.
 
 Found by the gate, not by reading docs: the first layout produced six errors,
 the second one, the third zero.
@@ -489,6 +489,243 @@ knowledge outlives the toolchain. Templating syntax stays quarantined in
 `bedrock-jsonte`. `docs/` already splits this way — `bedrock-entity-notes.md`
 versus `bedrock-jsonte-notes.md` — and that separation is now deliberate, so
 replacing the templating layer costs one skill rather than all of them.
+
+---
+
+## The `dash` Regolith filter is rejected
+
+**Decided 2026-08-31.** Investigated after establishing that bridge.'s Dash
+compiler has a genuinely stronger answer than jsonte to the problem this
+project cares most about — keeping generated cross-file references from
+drifting.
+
+**What the filter is.** `dash` in the Bedrock-OSS resolver points at
+`evilguy50/my-regolith-filters`, and it is **not** a port of Dash to Regolith.
+It is a ~40-line Nim script that downloads `deno-dash-compiler` as a zip from a
+hardcoded GitHub URL on first run, `deno task install:full`s it globally, shells
+out to `dash_compiler build`, then **deletes `BP/` and `RP/` and moves
+`builds/dist/<name> BP` over them**. A whole second compiler nested inside
+Regolith, replacing the pack wholesale rather than transforming it. The two
+`sleep(1000)` calls in the source are load-bearing.
+
+**Why not.** Any one of these would be survivable; together they are not:
+
+- **Stale by three years.** Last commit 2023-08-05, pinning Dash **0.4.5**.
+  Upstream `deno-dash-compiler` is at **v1.1.1** (2026-06-02). The drift is not
+  cosmetic: v1.0.1 moved default build paths to the GDK folders and v1.1.0
+  rewrote path handling for Linux/Windows parity. The filter's
+  `builds/dist/<name> BP` assumption was written against the old layout.
+- **Two new toolchain prerequisites**, Nim *and* Deno. The `jsonte` filter
+  ships prebuilt binaries and needs neither (see `docs/bedrock-jsonte-notes.md`).
+- **A network fetch at filter runtime.** We already lose time to mct stalling
+  on registry lookups (`docs/bedrock-verify-notes.md`); adding a second
+  build-time download is the wrong direction, and it breaks offline CI.
+- **`config.json` collision.** bridge. and Regolith both use `config.json` at
+  the project root. Dash demands a `compiler` key in ours, which is a bridge
+  concept inside a file validated against `Bedrock-OSS/regolith-schemas`. The
+  filter's `use_bridge_config` setting exists to work around exactly this.
+
+**What we would have gained, and why it does not change the answer.** Dash's
+custom components are imperative JavaScript with a context object, and calling
+`animation({...})` emits the animation file, registers it under
+`description/animations`, *and* wires `scripts/animate` — reference and referent
+created by one call, so they cannot drift. `lootTable()`, `spawnRule()`,
+`tradeTable()` and `client.create()` (which emits the **RP** client entity from
+the BP file) work the same way. That is structurally stronger than what our
+`.modl` modules do: the drifter variant chain keeps BP component groups, the RP
+texture map and the render controller's `Array.skins` aligned by *convention* —
+a shared array in `packs/data/jsonte/data.json` plus the discipline to index it
+consistently.
+
+But the principle is portable and the tool is not. **The rule worth keeping:
+never let a template emit a name that something else has to remember to
+reference.** `proximity_aggro.modl` already obeys it by making each component
+group and the event that adds it inseparable; that is the same idea as Dash
+returning its own handle. Generalising that within jsonte is cheap. Adopting
+Dash is not.
+
+**Dash also contributes nothing to logical-error detection.** Its complete
+diagnostic vocabulary, confirmed by reading every `console.error` in `src/`, is:
+undefined file dependency, circular dependency, plugin/component threw or has
+the wrong export shape, JSON5 parse failure, and non-string entry in a command
+array. No schema validation, no semantic linting. bridge.'s schemas live in
+`editor-packages` and are applied by the *editor* through Monaco, never by the
+compiler.
+
+The irony worth recording: `Component.ts` contains
+`findComponentGroupReferences(events, 'add'|'remove', groupName)`, which walks
+`sequence` and `randomize` recursively to find every event touching a given
+group. That is precisely the analysis an unreachable-group check needs, computed
+and then discarded — it exists only to attach lifecycle hooks.
+
+**Revisit if:** someone republishes a maintained Dash filter tracking v1.x, or
+we decide to leave Regolith entirely. The maintained Dash entry points are
+`deno-dash-compiler` invoked directly and the `bridge-core/build-mc-project`
+GitHub Action — but both *replace* Regolith rather than plugging into it, which
+contradicts staying close to the official tools.
+
+---
+
+## There is no Regolith filter that authors animations
+
+**Decided 2026-08-31.** Checked while looking for one; recording the negative
+result so it is not searched for twice.
+
+`blockbench_convert` is the filter the model-authoring docs describe, and its
+readme is explicit about scope: it converts `.bbmodel` files **into geometry
+files and images**. Files named `*.entity.bbmodel` or `*.block.bbmodel` also
+export textures. **Animations are not mentioned and are not converted**, even
+though `.bbmodel` can carry them. It automates the geometry export step, nothing
+more.
+
+Across all **137** filters in the Bedrock-OSS resolver, the only
+animation-adjacent one is `bogumidu/bedrock_bundler`, which *"bundles
+animation_controllers, animations, models and render_controllers into single
+files"* — a packaging convenience, not an authoring tool. Nothing generates
+animation content.
+
+So animations stay hand-authored JSON (or Blockbench exports moved in by hand),
+and the one-directional handoff in `docs/model-authoring-human.md` is unchanged.
+
+**Also spotted while enumerating the resolver**, unverified and relevant to the
+open question of semantic validation: `sanity_check`, `validate`, `style_lint`,
+and `extend-vanilla-entities`. None has been looked at.
+
+---
+
+## The gate validates compiled output; checks that can be filters, are
+
+**Decided 2026-08-31.** Two changes made together, from one observation: the
+verify gate was doing work in Bash that belonged in the pipeline, and it was
+doing it to the wrong files.
+
+**`verify.sh` validated `packs/`.** It ran `mct validate addon -i .` after
+deleting `build/`, so the input was source: `.templ` and `.modl` files the game
+never loads, minus every `.json` jsonte generates, which exists only in the
+export target. Both entities, the drifter client entity and the render
+controller were invisible to the gate. Pointing it at `build/` produced three
+errors on the first run that source validation had never reported once — see
+`docs/bedrock-verify-notes.md`.
+
+This is worth stating as a rule because the failure was silent and looked like
+success for weeks: **a gate that validates its inputs instead of its outputs
+reports on files nobody ships.** Where a build step generates content, the
+generated content is the thing to check.
+
+**Two checks moved into filters.** `sanity_check` (MCDevKit) covers cross-file
+and filesystem checks mct does not make — missing sounds referenced by
+`sound_definitions.json`, missing translations across `.lang` files, folder and
+file misspellings by edit distance, BOM removal, entity property type fixes. It
+runs last in every profile and found a real issue on its first run.
+`prune_empty_dirs` is a small local filter that removes the empty `BP/modules/`
+directory jsonte leaves behind, which is what `sanity_check` had flagged.
+
+The division that emerged, and the one to keep:
+
+- **A filter** for anything that inspects or transforms pack content. It runs on
+  the compiled copy, it is declarative in `config.json`, and it works the same
+  in CI and locally.
+- **The shell script** for what a filter structurally cannot do: bound a hung
+  process with `timeout` (a filter cannot time itself out), clear the export
+  target before the run so the deletion-safety check cannot fire, choose a
+  profile, and parse the report with the multi-signal strictness the gate needs.
+
+**Revisit if:** filters gain a timeout mechanism, in which case more of
+`verify.sh` can move.
+
+---
+
+## The `validate` filter is not adopted, and not forked
+
+**Decided 2026-08-31.** Considered while moving gate logic into filters, since
+`MCDevKit/regolith-library`'s `validate` filter is literally `mct validate` in
+the pipeline — the right shape for the split above.
+
+Rejected on three grounds:
+
+- **Nothing to fix.** The one capability worth having, `logOverrides` (match an
+  info item on level/error code/id/file and rewrite its level), already exists.
+  A fork would add nothing.
+- **Forking means owning its worst part.** `main.js` reaches mct's validation
+  entry point by monkey-patching a third-party module to capture an unexported
+  function — it assigns `require("threads/worker").expose` and then requires
+  `@minecraft/creator-tools/cli/TaskWorker.js` to trigger it. That crosses two
+  package boundaries into internals and will break on mct upgrades. Given the
+  creator-tools install trouble already documented in `AGENTS.md` section 2,
+  this is a bad thing to take responsibility for.
+- **It is weaker than what we have.** It checks only items with
+  `iTp === error`. `verify.sh` additionally checks
+  `internalProcessingErrorCount`, cross-checks the `iTp: 3` item count against
+  `errorCount`, cross-checks mct's exit code against a clean report, and prints
+  warnings and recommendations. Adopting it would loosen the gate.
+
+**Worth stealing, not adopting:** `logOverrides` is the right answer to a
+Cooperative Add-On rule that conflicts with a deliberate choice — the
+`CADDONREQ108` loot-table path problem was solved by moving the file, but the
+next conflict may not have a clean workaround, and the gate is currently
+all-or-nothing on `errorCount`.
+
+**Revisit if:** we need per-error suppression, in which case implement it in
+`verify.sh`'s report parser rather than taking the dependency.
+
+---
+
+## The namespace is `nimrodx_template`, derived from `studio` + `pack`
+
+**Decided 2026-08-31.** Forced by the gate: once it validated compiled output
+instead of source, `CADDONIREQ112` (both entities) and `CADDONIREQ141` (the
+drifter render controller) appeared. Cooperative Add-On requires identifiers of
+the form `<studio>_<pack>:thing`, asset paths of the form `<studio>/<pack>/...`,
+and render controllers named `controller.render.<studio>_<pack>`. The old
+namespace was the single word `addontemplate`.
+
+Renaming rather than suppressing, because this repo exists to model practice: a
+template that ships identifiers failing the platform's own naming rules teaches
+the wrong thing. `studio = nimrodx`, `pack = template`.
+
+What moved:
+
+- `addontemplate:*` -> `nimrodx_template:*` (identifiers, events, type families)
+- `loot_tables/addontemplate/template/` -> `loot_tables/nimrodx/template/`
+- `textures/addontemplate/{common,template}/` -> `textures/nimrodx/...`
+- `controller.render.drifter` -> `controller.render.nimrodx_template.drifter`
+
+**The two spellings are not interchangeable** - the namespace joins with an
+underscore, the directory path with a slash - and mct enforces the *shape* of
+each without being able to tell you the two halves disagree. So both are derived
+from the same two words rather than written out.
+
+### `name_ninja` does not do this, and no filter should
+
+Checked, because it was assumed to. `name_ninja` reads identifiers and writes
+**display names** into `.lang` files (`entity.<id>.name=...`), optionally
+auto-generating them from the identifier. It is a *consumer* of identifiers and
+never a producer. Nothing about namespaces passes through it.
+
+The filter that does do it, `cda94581/namespace`, is **rejected**. Its own
+readme lists "Keys are not changed" as a known issue - and our entity events are
+JSON *keys* (`"nimrodx_template:become_aggro": {...}`), so it would rewrite the
+`trigger` values while leaving the event definitions behind and silently break
+every state transition. It also warns that "Molang may be messed up", requires
+`json_cleaner` ahead of it, and sits at v0.0.7. Worse in principle: it would
+make `packs/` hold a placeholder namespace, so source would no longer read as
+what ships - directly against the decision that `packs/` is source of truth.
+
+### Where the derivation lives, and why not in `data.json`
+
+`studio` and `pack` are global (`packs/data/jsonte/data.json`); the joined forms
+are derived in each `.templ`'s `$scope`. This is not stylistic - a global scope
+value is substituted only **once**, so `"namespace": "{{studio}}_{{pack}}"`
+reaches the built file as the literal string `{{studio}}_{{pack}}`. It produces
+valid JSON containing an impossible path, `mct validate` passes it, and only
+reading `build/` catches it. Full detail and the resolution table in
+`docs/bedrock-jsonte-notes.md`.
+
+Cost: four lines of `$scope` per template. Benefit: one place to change project
+identity, and no way for the underscore form and the slash form to disagree.
+
+**Revisit if:** jsonte resolves global scope values recursively, which would let
+the derivation move back into `data.json`.
 
 ---
 
