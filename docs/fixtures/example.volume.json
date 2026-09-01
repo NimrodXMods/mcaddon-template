@@ -1,0 +1,13 @@
+{
+  "southWestBottom": { "x": 0, "y": 0, "z": 0 },
+  "blockLayersBottomToTop": [
+    ["SSSSS", "SSSSS", "SSSSS", "SSSSS", "SSSSS"],
+    ["     ", "     ", "     ", "     ", "     "],
+    ["     ", "     ", "     ", "     ", "     "],
+    ["     ", "     ", "     ", "     ", "     "]
+  ],
+  "key": {
+    "S": { "typeId": "minecraft:stone" },
+    " ": { "typeId": "minecraft:air" }
+  }
+}

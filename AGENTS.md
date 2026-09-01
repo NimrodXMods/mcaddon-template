@@ -205,7 +205,7 @@ packages** - four were rolled back here as a side effect. Re-check
 | Project | `create`, `add`, `fix`, `set`, `info`, `setup`, `deploy`, `exportaddon`, `exportworld` |
 | View/Edit | `view` (read-only web UI), `edit` (read-write web UI) |
 | Server | `serve`, `mcp`, `dedicatedserve`, `passcodes`, `setserverprops`, `eula` |
-| Render | `rendermodel`, `rendervanilla`, `renderstructure`, `buildstructure` |
+| Render | `rendermodel`, `rendervanilla`, `renderstructure`, `buildstructure` (builds a `.mcstructure` from JSON - **an agent can author GameTest fixtures without the game**; see `docs/gametest-notes.md`) |
 | World | `world`, `ensureworld`, `deploytestworld` |
 
 Global flags available everywhere: `-i/--input-folder`, `-o/--output-folder`,
@@ -933,10 +933,16 @@ which takes a list:
 
 ```bash
 # from: my-addon/
-npx mct ensureworld -i .
+regolith run                                # -i build must not be stale
+npx mct -i build -o build/worlds exportworld
 npx mct world set -i . --betaApis true      # only if you need beta APIs
 npx mct deploytestworld -i . --launch
 ```
+
+**Do not use `mct ensureworld`** - it prints `Created world at ...` and writes
+nothing (gotcha table). And do not export with `-i .`: that packs `packs/`
+source instead of the Regolith build output, and rewrites the source manifest
+on the way through. `docs/gametest-notes.md` has the detail.
 
 ### 3g. The verify gate
 
@@ -1092,7 +1098,10 @@ The `build` profile runs `bump_manifest`, so versions increment on release.
 The script also restores the source manifests afterwards, because
 `mct exportaddon` normalizes dependency versions to arrays (gotcha table).
 
-For a GameTest world: `mct exportworld -i . -o build`.
+For a GameTest world: `mct -i build -o build/worlds exportworld`, after a
+`regolith run`. Not `-i .` - that packs source rather than build output, and
+rewrites `packs/BP/manifest.json` the same way `exportaddon` does. See
+`docs/gametest-notes.md`.
 
 ## 6. Things that will bite you
 
@@ -1119,6 +1128,9 @@ For a GameTest world: `mct exportworld -i . -o build`.
 | Item is **invisible** (not magenta) | The `minecraft:icon` component shape is wrong, so nothing resolved. Magenta means a texture path resolved but the file is missing; invisible means the component itself was rejected. `minecraft:icon` is either a bare string or `{"textures": {"default": "<key>"}}` - `textures` plural, `default` required, `additionalProperties: false`. `{"texture": "x"}` is silently invalid. |
 | Validation passes but content is broken in game | `mct validate` does **not** deep-validate component payloads against the schemas. It checks manifests, pack conventions and file structure. A malformed component shape reports zero errors. Read `../mcbe-schemas/behavior/<type>/<type>.json` before writing a component - this is what rule 4a exists for, and it is easy to skip. |
 | Pack changes do not appear after `/reload` | `/reload` reloads **functions and scripts only** - not entity/block/item definitions and not textures. Use `/reload all`, which reloads all behavior and resource packs. It is implemented as a quit-and-rejoin but is effectively instant and returns you to the same spot, so there is little reason to prefer plain `/reload`. Host player only on servers. |
+| `mct exportworld` leaves `packs/BP/manifest.json` modified | The export is **not read-only**: it rewrites the manifest of whatever `-i` points at, in place - converting `module_name` dependency versions from the semver-string form (`"2.9.0"`) to the array form (`[2, 9, 0]`) and dropping the trailing newline. Observed on mct v0.17.8. Running it as `-i build` confines the rewrite to derived output and avoids this entirely; otherwise `git checkout -- packs/BP/manifest.json` after exporting, and check `git status` before committing - it is easy to sweep this into an unrelated commit. Whether the game actually accepts the array form for script-module deps is test-backlog item 6 and is still unverified; its failure mode is silent (pack loads, scripts dead). |
+| `mct ensureworld` says `Created world at ...` but writes nothing | The message is a lie: `find out -type f` is empty and `git status` stays clean. `exportworld` is the command that writes a real world zip. Use `npx mct -i build -o build/worlds exportworld` - **`-i` defaults to the working directory, so bare it packs `packs/` source rather than the Regolith build output**, and filter-generated content (templated entities, `en_US.lang`, `textures_list.json`) is then missing from the world. `-o` sets the output directory; the filename is always `<basename of -i>.mcworld` unless you pass `--of`. See `docs/gametest-notes.md`. |
+| `--betaapis` / `--no-betaapis` appear to do nothing on `exportworld` | They are inert there. `exportworld` unconditionally writes `experiments: { gametest: 1 }` - a GameTest world is what it produces by definition. Exporting with each flag and diffing the two `level.dat` files leaves one byte different: the `LastPlayed` timestamp. Those flags matter on the world/deploy paths only. |
 | An mct command runs for minutes | Network, not the tool. mct resolves script module deps against registry.npmjs.org and a half-open connection stalls it; `--offline` does not stop those lookups. `--verbose` eventually shows `Could not load registry for '@minecraft/server'`. Both scripts wrap mct in `timeout` (60s, `MCT_TIMEOUT` to raise). npm's own `fetch-*` retry settings do not apply - mct is not npm. |
 | `timeout: failed to run command 'mct'` while `regolith run` succeeds | The global install is half-written, but creator-tools is rarely the culprit - **npm's global prefix is one shared tree**, and `npm i -g <anything>` re-reifies all of it and runs every package's install scripts. One unrelated postinstall failing aborts the whole transaction after extraction but before bin shims are linked. Observed here: `glslang-validator-prebuilt` died with `Cannot find module 'rimraf'`, leaving creator-tools with no `mct` shim. Diagnose from `npm ls -g --depth=0` - **a package printed with an empty version after the `@` is half-installed** - then the npm debug log the failure names. Recovery: remove the failing package, reinstall, re-check. See section 2. |
 | `npm warn cleanup ... EPERM: operation not permitted, unlink ...node.napi.node` | A running process has the native addon (`.node` = a DLL) mapped, and Windows will not unlink a loaded DLL. Almost always the **`mct mcp` MCP server this repo's `.mcp.json` starts**, holding `bufferutil`. npm finishes the install but cannot swap or clean its staging directory, stranding a ~55 MB `node_modules/@minecraft/.creator-tools-<hash>/` copy - whose truncated `dist lib node_modules res` contents are easily mistaken for a corrupt package. Stop the MCP server before any global install touching creator-tools, or use `npx -y -p @minecraft/creator-tools mct ...` which never writes to the global tree. Find leftovers with `find "$(npm config get prefix)/node_modules" -maxdepth 2 -name '.*-*' -type d`. |
