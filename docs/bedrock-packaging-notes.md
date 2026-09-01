@@ -79,7 +79,7 @@ while the `enum` immediately below lists six, including `skin_pack`.
 | Extension | Contents |
 | --- | --- |
 | `.mcpack` | A single pack - BP or RP. |
-| `.mcaddon` | A bundle of several packs. |
+| `.mcaddon` | A bundle of several packs, as directory trees. Learn also claims it may contain `.mcpack` or `.mcworld` files - unverified, see below. |
 | `.mctemplate` | A world template. |
 | `.mcworld` | An exported world. |
 
@@ -89,10 +89,125 @@ while the `enum` immediately below lists six, including `skin_pack`.
 > .mcpack for single-pack projects."
 
 `--format` overrides that (`auto` | `mcpack` | `mcaddon`). `scripts/deploy.sh`
-forces `mcaddon`. All four extensions are zips; `.mctemplate` is documented as
-literally "zip everything up, rename the file".
+forces `mcaddon`.
+
+**`--offline` does NOT prevent the manifest rewrite.** Confirmed 2026-08-31:
+`mct exportaddon --offline` still rewrote `packs/BP/manifest.json`, turning
+`"version": "2.9.0"` into `[2, 9, 0]` for both `@minecraft/server` and
+`@minecraft/server-ui`, and stripped the trailing newline. The comment in
+`scripts/deploy.sh` says `--offline` is safe because it produces a
+byte-identical archive, which is true of the *archive* but implies a safety
+for the *source* that does not hold. deploy.sh is unaffected only because it
+snapshots and restores the manifests either way. **Never run `exportaddon` by
+hand without checking `git diff packs/` afterwards.**
+
+All four extensions are zips; `.mctemplate` is documented as literally "zip
+everything up, rename the file".
 
 `.mcaddon` and `.mcworld` are gitignored here.
+
+## Which artifact to ship
+
+| Shipping | Use |
+| --- | --- |
+| Packs only - mobs, items, blocks | `.mcaddon` (or one `.mcpack` each) |
+| One specific world, packs included | **`.mcworld`** |
+| A world others instantiate fresh copies of | `.mctemplate` |
+| A generated world from custom biomes/features | `.mctemplate` with `allow_random_seed`, no `db` |
+
+**A `.mcworld` already carries its packs.** Exporting a world with add-ons
+active produces `behavior_packs/` and `resource_packs/` alongside `db/`,
+`level.dat` and `world_behavior_packs.json` / `world_resource_packs.json`
+(which reference the packs **by UUID**). So "world plus custom content in one
+file" needs nothing beyond `.mcworld`.
+
+The choice between `.mcworld` and `.mctemplate` is therefore **not** about
+whether packs are included. It is about **instancing**:
+
+| | `.mcworld` | `.mctemplate` |
+| --- | --- | --- |
+| Imports into | `minecraftWorlds/` | `world_templates/` |
+| Appears as | a world, ready to play | an option in world creation |
+| Instances | one - the recipient plays *that* world | many - each use spawns a fresh copy |
+| `manifest.json` | not required | **required**: `type: world_template`, `format_version` 2, two UUIDs |
+| `texts/` folder | - | optional; without it the name shows literally as `pack.name` |
+
+A `.mcworld` is a **copy**; a `.mctemplate` is a **factory**. Marketplace
+worlds are templates so every buyer gets a fresh instance.
+
+### A template cannot be both a fixed map and a random-seed generator
+
+`db/` **is** the world - the LevelDB chunk store. The documented random-seed
+recipe is to *delete* it:
+
+> 1. Starting with any unzipped, exported world, delete the **db** folder.
+> 2. Add `"allow_random_seed": true` to the manifest.json.
+
+So one template either has `db` (that specific map) or lacks it (generate
+fresh from the packs). The presence of the map is the switch; there is no
+setting that yields both. To ship a playable generated world *and* a showcase
+map, ship two artifacts - a random-seed template plus a separate `.mcworld`
+demo.
+
+Also: *"After the world is created, the world seed is locked and no longer
+editable."*
+
+## What is actually inside a `.mcaddon`
+
+**Verified 2026-08-31** by running `mct exportaddon -i . -o ./build --format
+mcaddon --offline` on this project and listing the archive.
+
+It contains **directory trees, not nested archives**:
+
+```
+BP_bp/
+  manifest.json
+  entities/  items/  blocks/  loot_tables/  scripts/  spawn_rules/
+RP_rp/
+  manifest.json
+  entity/  render_controllers/  textures/
+```
+
+46 entries, **zero** `.mcpack` or `.mcworld` files. Each pack is a top-level
+directory carrying its own `manifest.json`, and therefore its own UUIDs and
+module type.
+
+**There is no root-level manifest.** The archive has exactly two manifests,
+one per pack directory. Whatever the importer uses to decide what it is
+looking at, it is not a manifest at the top of the `.mcaddon`.
+
+Note also that `mct` names the directories from the **source folder** names
+(`packs/BP` -> `BP_bp`), not from `config.json`'s `name` the way regolith does
+for its export target. The same project therefore ships under two different
+folder names depending on which tool packaged it.
+
+### Unverified - documented but not tested here
+
+Learn's file-extension glossary says `.mcaddon` is *"a zip file that contains
+.mcpack or .mcworld files"*. That is a one-line glossary entry, from the same
+prose that got `minecraft:icon` wrong, and **the archive built here contained
+neither**. Open, in order of how much they matter:
+
+- Does the importer actually accept **nested `.mcpack` / `.mcworld`
+  archives**, as the glossary implies?
+- Can one `.mcaddon` hold **more than one pack of the same type** - two
+  resource packs, say? Nothing structural forbids it, since each directory has
+  its own manifest and UUIDs, but that is reasoning, not evidence.
+- Can an `.mcaddon` contain a **`.mctemplate`**? The glossary does not mention
+  it, and silence is not exclusion.
+
+**Working hypothesis, untested:** `.mcaddon` may be a general "meta importer"
+- a container whose only job is to let one file import a list of packs and
+worlds at once. That would explain the loose glossary wording, and it fits the
+UUID-based referencing already visible inside worlds, where
+`world_behavior_packs.json` names required packs by UUID rather than by
+folder. Under that reading, the plausible real use for a world inside an
+`.mcaddon` is shipping **several worlds that share one copy of the packs**,
+rather than duplicating packs per world.
+
+Recorded as a hypothesis. Test before relying on any of it: build an
+`.mcaddon` by hand containing two worlds and one pack, import it, and see what
+the game does.
 
 ## World templates are not world generation
 
