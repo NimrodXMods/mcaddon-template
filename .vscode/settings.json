@@ -220,6 +220,8 @@
   "files.associations": {
     "*.mcfunction": "mcfunction",
     "*.templ": "jsonc",
+    "*.modl": "jsonc",
+    "*.json": "jsonc",
     "*.lang": "minecraft-language"
   }
 }
